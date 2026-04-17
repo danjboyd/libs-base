@@ -700,6 +700,11 @@ static NSUInteger	urlAlign;
   return nil;
 }
 
+- (id) init
+{
+  return [self initWithString: @""];
+}
+
 - (id) initFileURLWithPath: (NSString *)aPath
 {
   /* isDirectory flag will be overwritten if a directory exists. */
