@@ -589,6 +589,7 @@ GS_EXPORT_CLASS
     BOOL isFollowing: 1;
     BOOL justContents: 1;
     BOOL skipHidden: 1;
+    BOOL skipPackages: 1;
   } _flags;
 #endif
 #if     GS_NONFRAGILE
