@@ -43,6 +43,7 @@
   BOOL _cancelled; \
   BOOL _cancellable; \
   BOOL _finished; \
+  BOOL _paused; \
   BOOL _allowImplicitChild; \
   GSProgressCancellationHandler _cancellationHandler; \
   GSProgressPausingHandler _pausingHandler; \
@@ -260,6 +261,7 @@ GSProgressIsIndeterminate(int64_t total, int64_t completed)
       internal->_cancelled = NO;
       internal->_cancellable = YES;
       internal->_finished = NO;
+      internal->_paused = NO;
       internal->_localizedDescription = nil;
       internal->_localizedAdditionalDescription = nil;
       internal->_children = nil; // Lazily initialize this set
@@ -549,9 +551,18 @@ GSProgressIsIndeterminate(int64_t total, int64_t completed)
 - (void) performAsCurrentWithPendingUnitCount: (int64_t)unitCount 
   usingBlock: (GSProgressPendingUnitCountBlock)work
 {
-  NSProgress *current = [NSProgress currentProgress];
-  CALL_BLOCK_NO_ARGS(work);
-  [current setCompletedUnitCount: [current completedUnitCount] + unitCount];
+  [self becomeCurrentWithPendingUnitCount: unitCount];
+  NS_DURING
+    {
+      CALL_BLOCK_NO_ARGS(work);
+    }
+  NS_HANDLER
+    {
+      [self resignCurrent];
+      [localException raise];
+    }
+  NS_ENDHANDLER
+  [self resignCurrent];
 }
 
 
@@ -713,19 +724,40 @@ GSProgressIsIndeterminate(int64_t total, int64_t completed)
 
 - (BOOL) isPausable
 {
-  // Stub
-  return NO;
+  BOOL pausable;
+
+  GS_MUTEX_LOCK(internal->_lock);
+  pausable = internal->_pausingHandler != nil;
+  GS_MUTEX_UNLOCK(internal->_lock);
+
+  return pausable;
 }
 
 - (BOOL) isPaused
 {
-  // Stub
-  return NO;
+  BOOL paused;
+
+  GS_MUTEX_LOCK(internal->_lock);
+  paused = internal->_paused;
+  GS_MUTEX_UNLOCK(internal->_lock);
+
+  return paused;
 }
 
 - (void) pause
 {
-  [self notImplemented: _cmd];
+  GSProgressPausingHandler handler;
+
+  GS_MUTEX_LOCK(internal->_lock);
+  internal->_paused = YES;
+  handler = [internal->_pausingHandler copy];
+  GS_MUTEX_UNLOCK(internal->_lock);
+
+  if (handler != nil)
+    {
+      CALL_BLOCK_NO_ARGS(handler);
+      RELEASE(handler);
+    }
 }
 
 - (void) setPausingHandler: (GSProgressPausingHandler) handler
@@ -760,7 +792,18 @@ GSProgressIsIndeterminate(int64_t total, int64_t completed)
 
 - (void) resume
 {
-  [self notImplemented: _cmd];
+  GSProgressResumingHandler handler;
+
+  GS_MUTEX_LOCK(internal->_lock);
+  internal->_paused = NO;
+  handler = [internal->_resumingHandler copy];
+  GS_MUTEX_UNLOCK(internal->_lock);
+
+  if (handler != nil)
+    {
+      CALL_BLOCK_NO_ARGS(handler);
+      RELEASE(handler);
+    }
 }
 
 - (void) setResumingHandler: (GSProgressResumingHandler) handler
@@ -810,7 +853,18 @@ GSProgressIsIndeterminate(int64_t total, int64_t completed)
                    forKey: (NSProgressUserInfoKey)key
 {
   GS_MUTEX_LOCK(internal->_lock);
-  [internal->_userInfo setObject: obj forKey: key];
+  if (internal->_userInfo == nil)
+    {
+      internal->_userInfo = [NSMutableDictionary new];
+    }
+  if (obj == nil)
+    {
+      [internal->_userInfo removeObjectForKey: key];
+    }
+  else
+    {
+      [internal->_userInfo setObject: obj forKey: key];
+    }
   GS_MUTEX_UNLOCK(internal->_lock);
 }
 

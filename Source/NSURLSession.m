@@ -35,6 +35,8 @@
 #import "Foundation/NSUserDefaults.h"
 #import "Foundation/NSBundle.h"
 #import "Foundation/NSData.h"
+#import "Foundation/NSFileManager.h"
+#import "Foundation/NSURL.h"
 
 #import "GNUstepBase/NSDebug+GNUstepBase.h"  /* For NSDebugMLLog */
 #import "GNUstepBase/NSObject+GNUstepBase.h" /* For -notImplemented */
@@ -727,6 +729,14 @@ socket_callback(CURL * easy,           /* easy handle */
     _workQueue,
     ^{
     _invalidated = YES;
+    if ([_tasks count] == 0
+        && [_delegate respondsToSelector:
+          @selector(URLSession:didBecomeInvalidWithError:)])
+      {
+        [_delegateQueue addOperationWithBlock:^{
+          [_delegate URLSession: self didBecomeInvalidWithError: nil];
+        }];
+      }
   });
 }
 
@@ -747,6 +757,14 @@ socket_callback(CURL * easy,           /* easy handle */
     {
       [task cancel];
     }
+    if ([_tasks count] == 0
+        && [_delegate respondsToSelector:
+          @selector(URLSession:didBecomeInvalidWithError:)])
+      {
+        [_delegateQueue addOperationWithBlock:^{
+          [_delegate URLSession: self didBecomeInvalidWithError: nil];
+        }];
+      }
   });
 }
 
@@ -785,10 +803,20 @@ socket_callback(CURL * easy,           /* easy handle */
 {
   NSURLSessionUploadTask * task;
   NSInputStream * stream;
+  NSInteger fileSize = 0;
   NSInteger identifier;
 
   identifier = [self _nextTaskIdentifier];
   stream = [NSInputStream inputStreamWithURL: fileURL];
+  if ([fileURL isFileURL])
+    {
+      NSDictionary *attributes;
+
+      attributes = [[NSFileManager defaultManager]
+        attributesOfItemAtPath: [fileURL path]
+                         error: NULL];
+      fileSize = (NSInteger)[attributes fileSize];
+    }
   task = [[NSURLSessionUploadTask alloc] initWithSession: self
                                                  request: request
                                           taskIdentifier: identifier];
@@ -800,7 +828,7 @@ socket_callback(CURL * easy,           /* easy handle */
   [task
    _setProperties: GSURLSessionUpdatesDelegate | GSURLSessionHasInputStream];
   [task _setBodyStream: stream];
-  [task _enableUploadWithSize: 0];
+  [task _enableUploadWithSize: fileSize];
 
   [self _didCreateTask: task];
 
@@ -1038,10 +1066,20 @@ NSURLSession (NSURLSessionAsynchronousConvenience)
 {
   NSURLSessionUploadTask * task;
   NSInputStream * stream;
+  NSInteger fileSize = 0;
   NSInteger identifier;
 
   identifier = [self _nextTaskIdentifier];
   stream = [NSInputStream inputStreamWithURL: fileURL];
+  if ([fileURL isFileURL])
+    {
+      NSDictionary *attributes;
+
+      attributes = [[NSFileManager defaultManager]
+        attributesOfItemAtPath: [fileURL path]
+                         error: NULL];
+      fileSize = (NSInteger)[attributes fileSize];
+    }
   task = [[NSURLSessionUploadTask alloc] initWithSession: self
                                                  request: request
                                           taskIdentifier: identifier];
@@ -1053,7 +1091,7 @@ NSURLSession (NSURLSessionAsynchronousConvenience)
   [task _setCompletionHandler: completionHandler];
   [task _enableAutomaticRedirects: YES];
   [task _setBodyStream: stream];
-  [task _enableUploadWithSize: 0];
+  [task _enableUploadWithSize: fileSize];
 
   [self _didCreateTask: task];
 

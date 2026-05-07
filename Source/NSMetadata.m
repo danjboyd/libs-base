@@ -32,6 +32,7 @@
 #import "Foundation/NSMetadata.h"
 #import "Foundation/NSArray.h"
 #import "Foundation/NSDictionary.h"
+#import "Foundation/NSNotification.h"
 #import "Foundation/NSPredicate.h"
 #import "Foundation/NSString.h"
 #import "Foundation/NSTimer.h"
@@ -98,7 +99,7 @@
   NSArray *_valueListAttributes;
 
   NSTimeInterval _notificationBatchingInterval;
-  NSMutableDictionary *_results;
+  NSArray *_results;
 
   id<NSMetadataQueryDelegate> _delegate;
 }
@@ -115,6 +116,13 @@
 
 - (void) dealloc
 {
+  RELEASE(this->_searchURLs);
+  RELEASE(this->_scopes);
+  RELEASE(this->_sortDescriptors);
+  RELEASE(this->_predicate);
+  RELEASE(this->_groupingAttributes);
+  RELEASE(this->_valueListAttributes);
+  RELEASE(this->_results);
   [this release];
   [super dealloc];
 }
@@ -126,28 +134,25 @@
 
 - (void) disableUpdates
 {
-  [self subclassResponsibility: _cmd];
 }
 
 - (void) enableUpdates
 {
-  [self subclassResponsibility: _cmd];
 }
 
 - (NSArray *) groupedResults
 {
-  return [self subclassResponsibility: _cmd];
+  return [NSArray array];
 }
 
 - (NSArray *) groupingAttributes
 {
-  return [self subclassResponsibility: _cmd];
+  return this->_groupingAttributes;
 }
 
 - (NSUInteger) indexOfResult: (id)result
 {
-  [self subclassResponsibility: _cmd];
-  return NSNotFound;
+  return [this->_results indexOfObject: result];
 }
 
 - (id) init
@@ -159,6 +164,7 @@
       this->_isGathering = NO;
       this->_isStarted = NO;
       this->_notificationBatchingInterval = (NSTimeInterval)0.0;
+      this->_results = [NSArray new];
     }
   return self;
 }
@@ -180,8 +186,7 @@
 
 - (NSTimeInterval) notificationBatchingInterval
 {
-  [self subclassResponsibility: _cmd];
-  return (NSTimeInterval)0;
+  return this->_notificationBatchingInterval;
 }
 
 - (NSPredicate *) predicate
@@ -191,18 +196,17 @@
 
 - (id) resultAtIndex: (NSUInteger)index
 {
-  return [self subclassResponsibility: _cmd];
+  return [this->_results objectAtIndex: index];
 }
 
 - (NSUInteger) resultCount
 {
-  [self subclassResponsibility: _cmd];
-  return 0;
+  return [this->_results count];
 }
 
 - (NSArray *) results
 {
-  return [self subclassResponsibility: _cmd];
+  return this->_results;
 }
 
 - (NSArray *) searchItemURLs
@@ -222,12 +226,12 @@
 
 - (void) setGroupingAttributes: (NSArray *)attrs
 {
-  [self subclassResponsibility: _cmd];
+  ASSIGNCOPY(this->_groupingAttributes, attrs);
 }
 
 - (void) setNotificationBatchingInterval: (NSTimeInterval)interval
 {
-  [self subclassResponsibility: _cmd];
+  this->_notificationBatchingInterval = interval;
 }
 
 - (void) setPredicate: (NSPredicate *)predicate
@@ -252,7 +256,7 @@
 
 - (void) setValueListAttributes: (NSArray *)attrs
 {
-  [self subclassResponsibility: _cmd];
+  ASSIGNCOPY(this->_valueListAttributes, attrs);
 }
 
 - (NSArray *) sortDescriptors
@@ -262,28 +266,49 @@
 
 - (BOOL) startQuery
 {
-  [self subclassResponsibility: _cmd];
-  return NO;
+  if (this->_isStarted == YES && this->_isStopped == NO)
+    {
+      return NO;
+    }
+
+  this->_isStopped = NO;
+  this->_isGathering = YES;
+  this->_isStarted = YES;
+  [[NSNotificationCenter defaultCenter]
+    postNotificationName: NSMetadataQueryDidStartGatheringNotification
+		  object: self];
+  this->_isGathering = NO;
+  [[NSNotificationCenter defaultCenter]
+    postNotificationName: NSMetadataQueryDidFinishGatheringNotification
+		  object: self];
+  return YES;
 }
 
 - (void) stopQuery
 {
-  [self subclassResponsibility: _cmd];
+  this->_isStopped = YES;
+  this->_isGathering = NO;
 }
 
 - (id) valueOfAttribute: (id)attr forResultAtIndex: (NSUInteger)index
 {
-  return [self subclassResponsibility: _cmd];
+  id	result = [self resultAtIndex: index];
+
+  if ([result respondsToSelector: @selector(valueForAttribute:)])
+    {
+      return [result valueForAttribute: attr];
+    }
+  return nil;
 }
 
 - (NSDictionary *) valueLists
 {
-  return [self subclassResponsibility: _cmd];
+  return [NSDictionary dictionary];
 }
 
 - (NSArray *) valueListAttributes
 {
-  return [self subclassResponsibility: _cmd];
+  return this->_valueListAttributes;
 }
 
 @end

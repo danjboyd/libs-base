@@ -1157,6 +1157,7 @@ didUpdateRecordData: (id)data
           [self handleError: avahi_client_errno((AvahiClient*)_client)];
           return;
         }
+      [self netServiceWillResolve: self];
       _serviceState = GSNetServiceResolving;
       if (_timer != nil)
         {
