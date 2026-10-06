@@ -48,6 +48,7 @@ extern "C" {
 @class NSInvocation;
 @class Protocol;
 
+NS_ASSUME_NONNULL_BEGIN
 
 /**
  * The NSObject protocol describes a minimal set of methods that all
@@ -385,7 +386,7 @@ GS_EXPORT_CLASS GS_ROOT_CLASS
 + (void) setVersion: (NSInteger)aVersion;
 + (NSInteger) version;
 
-- (id) awakeAfterUsingCoder: (NSCoder*)aDecoder NS_REPLACES_RECEIVER;
+- (id _Nullable) awakeAfterUsingCoder: (NSCoder*)aDecoder NS_REPLACES_RECEIVER;
 - (Class) classForArchiver;
 - (Class) classForCoder;
 - (id) copy;
@@ -396,8 +397,8 @@ GS_EXPORT_CLASS GS_ROOT_CLASS
 - (IMP _Nullable) methodForSelector: (SEL)aSelector;
 - (NSMethodSignature *_Nullable) methodSignatureForSelector: (SEL)aSelector;
 - (id) mutableCopy;
-- (id) replacementObjectForArchiver: (NSArchiver*)anArchiver;
-- (id) replacementObjectForCoder: (NSCoder*)anEncoder;
+- (id _Nullable) replacementObjectForArchiver: (NSArchiver *_Nullable)anArchiver;
+- (id _Nullable) replacementObjectForCoder: (NSCoder *_Nullable)anEncoder;
 - (Class _Nullable) superclass;
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_5, GS_API_LATEST)
 /**
@@ -456,6 +457,7 @@ GS_EXPORT_CLASS GS_ROOT_CLASS
 #endif
 @end
 
+NS_ASSUME_NONNULL_END
 
 /**
  * Used to allocate memory to hold an object, and initialise the
@@ -522,6 +524,7 @@ NSIncrementExtraRefCount(id anObject);
  *  Declares some methods for sending messages to self after a fixed delay.
  *  (These methods <em>are</em> in OpenStep and OS X.)
  */
+NS_ASSUME_NONNULL_BEGIN
 
 @interface NSObject (TimedPerformers)
 
@@ -596,6 +599,8 @@ NSIncrementExtraRefCount(id anObject);
 @end
 
 #endif
+NS_ASSUME_NONNULL_END
+
 #if	defined(__cplusplus)
 }
 #endif
