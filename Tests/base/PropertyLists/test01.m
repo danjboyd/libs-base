@@ -366,6 +366,19 @@ int main()
     errorDescription: 0], nil,
     "Does not crash on binary plist with cyclic references." )
 }
+{
+  const char		bytes[] = "bplist00\x01\x02\x03";
+  NSData        	*d = [NSData dataWithBytes: bytes length: sizeof(bytes)];
+  NSError		*error = nil;
+  id			u = nil;
+
+  PASS_RUNS(
+  u = [NSPropertyListSerialization propertyListWithData: d
+    options: NSPropertyListImmutable
+    format: 0
+    error: &error];, "Does not raise on a truncated binary plist");
+  PASS(nil == u && nil != error, "Reports a truncated binary plist as an error");
+}
 #endif
 
 

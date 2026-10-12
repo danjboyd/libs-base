@@ -2917,6 +2917,10 @@ checkPL(id aPropertyList, NSPropertyListFormat aFormat)
                 errorStr = [localException reason];
 	      }
 	    NS_ENDHANDLER
+	    if (result == nil && errorStr == nil)
+	      {
+		errorStr = @"failed to parse binary property list";
+	      }
           }
           break;
           
