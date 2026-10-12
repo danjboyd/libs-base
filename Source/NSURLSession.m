@@ -133,9 +133,11 @@
 #import "Foundation/NSUserDefaults.h"
 #import "Foundation/NSBundle.h"
 #import "Foundation/NSData.h"
+#import "Foundation/NSFileManager.h"
 #import "Foundation/NSInvocation.h"
 #import "Foundation/NSInvocationOperation.h"
 #import "Foundation/NSMethodSignature.h"
+#import "Foundation/NSURL.h"
 
 #import "GNUstepBase/NSDebug+GNUstepBase.h"  /* For NSDebugMLLog */
 #import "GNUstepBase/NSObject+GNUstepBase.h" /* For -notImplemented */
@@ -146,6 +148,23 @@
 GS_PRIVATE_INTERNAL(NSURLSession)
 
 NSString * GS_NSURLSESSION_DEBUG_KEY = @"NSURLSession";
+
+/* The size of the file an upload task sends, so libcurl can announce it
+ * rather than fall back to a chunked upload.  Zero when it is unknown.
+ */
+static NSInteger
+GSURLSessionFileSize(NSURL *fileURL)
+{
+  NSDictionary	*attributes;
+
+  if (NO == [fileURL isFileURL])
+    {
+      return 0;
+    }
+  attributes = [[NSFileManager defaultManager]
+    attributesOfItemAtPath: [fileURL path] error: NULL];
+  return (NSInteger)[attributes fileSize];
+}
 
 NSInvocation *
 GSURLSessionInvocation(id target, SEL aSelector)
@@ -526,6 +545,36 @@ static NSURLSession * sharedSession = nil;
   curl_multi_remove_handle(internal->_multiHandle, easy);
 }
 
+/* Finalisation of an invalidated session once it has no tasks left: either
+ * the last task has finished, or the session was invalidated with none.
+ */
+- (void) _finishInvalidationIfIdle
+{
+  if (internal->_invalidated && [internal->_tasks count] == 0)
+    {
+      if ([internal->_delegate respondsToSelector:
+	@selector(URLSession:didBecomeInvalidWithError:)])
+	{
+	  /* We only support explicit invalidation for now, so error is nil. */
+	  NSInvocation	*inv;
+	  NSURLSession	*session = self;
+	  NSError	*error = nil;
+
+	  inv = GSURLSessionInvocation(internal->_delegate,
+	    @selector(URLSession:didBecomeInvalidWithError:));
+	  [inv setArgument: &session atIndex: 2];
+	  [inv setArgument: &error atIndex: 3];
+	  [self _enqueueDelegateInvocation: inv];
+	}
+
+      /* The delegate must be released once the session is invalidated (so we
+       * will not send it more messages) in order to avoid retain loops keeping
+       * both session and delegate alive.
+       */
+      DESTROY(internal->_delegate);
+    }
+}
+
 /* The single point at which a task's transfer is finished.  Every completion
  * path (normal completion in -_checkForCompletion, a delegate cancellation, or
  * a held completion delivered once a disposition is known) funnels through
@@ -550,31 +599,7 @@ static NSURLSession * sharedSession = nil;
   [task _transferFinishedWithCode: code];
   RELEASE(task);
 
-  /* Finalisation once the last task of an invalidated session has finished.
-   */
-  if (internal->_invalidated && [internal->_tasks count] == 0)
-    {
-      if ([internal->_delegate respondsToSelector:
-	@selector(URLSession:didBecomeInvalidWithError:)])
-	{
-	  /* We only support explicit invalidation for now, so error is nil. */
-	  NSInvocation	*inv;
-	  NSURLSession	*session = self;
-	  NSError	*error = nil;
-
-	  inv = GSURLSessionInvocation(internal->_delegate,
-	    @selector(URLSession:didBecomeInvalidWithError:));
-	  [inv setArgument: &session atIndex: 2];
-	  [inv setArgument: &error atIndex: 3];
-	  [self _enqueueDelegateInvocation: inv];
-	}
-
-      /* The delegate must be released once the session is invalidated (so we
-       * will not send it more messages) in order to avoid retain loops keeping
-       * both session and delegate alive.
-       */
-      DESTROY(internal->_delegate);
-    }
+  [self _finishInvalidationIfIdle];
 
   RELEASE(self);
 }
@@ -1058,6 +1083,7 @@ static NSURLSession * sharedSession = nil;
 - (void) _workInvalidate
 {
   internal->_invalidated = YES;
+  [self _finishInvalidationIfIdle];
 }
 
 - (void) invalidateAndCancel
@@ -1080,6 +1106,7 @@ static NSURLSession * sharedSession = nil;
     {
       [task cancel];
     }
+  [self _finishInvalidationIfIdle];
 }
 
 - (NSURLSessionDataTask *) dataTaskWithRequest: (NSURLRequest *)request
@@ -1117,10 +1144,12 @@ static NSURLSession * sharedSession = nil;
 {
   NSURLSessionUploadTask * task;
   NSInputStream * stream;
+  NSInteger fileSize;
   NSInteger identifier;
 
   identifier = [self _nextTaskIdentifier];
   stream = [NSInputStream inputStreamWithURL: fileURL];
+  fileSize = GSURLSessionFileSize(fileURL);
   task = [[NSURLSessionUploadTask alloc] initWithSession: self
                                                  request: request
                                           taskIdentifier: identifier];
@@ -1132,7 +1161,7 @@ static NSURLSession * sharedSession = nil;
   [task
    _setProperties: GSURLSessionUpdatesDelegate | GSURLSessionHasInputStream];
   [task _setBodyStream: stream];
-  [task _enableUploadWithSize: 0];
+  [task _enableUploadWithSize: fileSize];
 
   [self _didCreateTask: task];
 
@@ -1408,10 +1437,12 @@ NSURLSession (NSURLSessionAsynchronousConvenience)
 {
   NSURLSessionUploadTask * task;
   NSInputStream * stream;
+  NSInteger fileSize;
   NSInteger identifier;
 
   identifier = [self _nextTaskIdentifier];
   stream = [NSInputStream inputStreamWithURL: fileURL];
+  fileSize = GSURLSessionFileSize(fileURL);
   task = [[NSURLSessionUploadTask alloc] initWithSession: self
                                                  request: request
                                           taskIdentifier: identifier];
@@ -1423,7 +1454,7 @@ NSURLSession (NSURLSessionAsynchronousConvenience)
   [task _setCompletionHandler: completionHandler];
   [task _enableAutomaticRedirects: YES];
   [task _setBodyStream: stream];
-  [task _enableUploadWithSize: 0];
+  [task _enableUploadWithSize: fileSize];
 
   [self _didCreateTask: task];
 

@@ -817,6 +817,11 @@ read_callback(char *buffer, size_t size, size_t nitems, void *userdata)
         }
     }
 
+  if ([stream streamStatus] == NSStreamStatusNotOpen)
+    {
+      [stream open];
+    }
+
   bytesWritten = [stream read: (uint8_t *)buffer maxLength: (size * nitems)];
   /* An error occured while reading from the inputStream */
   if (bytesWritten < 0)
@@ -1083,16 +1088,11 @@ write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
   curl_easy_setopt(internal->_easyHandle, CURLOPT_READFUNCTION, read_callback);
   curl_easy_setopt(internal->_easyHandle, CURLOPT_READDATA, self);
 
-  if (size > 0)
-    {
-      curl_easy_setopt(internal->_easyHandle, CURLOPT_POSTFIELDSIZE_LARGE,
-	size);
-    }
-  else
-    {
-      curl_easy_setopt(internal->_easyHandle, CURLOPT_POSTFIELDSIZE,
-	(curl_off_t)-1);
-    }
+  /* CURLOPT_UPLOAD reads the body size from CURLOPT_INFILESIZE; the
+   * POSTFIELDSIZE options only apply to POST bodies.
+   */
+  curl_easy_setopt(internal->_easyHandle, CURLOPT_INFILESIZE_LARGE,
+    (curl_off_t)(size > 0 ? size : -1));
 
   /* The method is overwritten by CURLOPT_UPLOAD. Change it back. */
   curl_easy_setopt(
@@ -1646,6 +1646,11 @@ combineFragments(NSArray *fragments)
    * URLSession:task:didCompleteWithError: is called after receiving
    * CURLMSG_DONE in -[NSURLSessionTask _checkForCompletion].
    */
+  /* Report the cancellation at once, as the transfer itself is only
+   * stopped later on the work thread.
+   */
+  gs_atomic_store(&internal->_shouldStopTransfer, YES);
+  internal->_state = NSURLSessionTaskStateCanceling;
   [internal->_session _performSelectorOnWorkThread: @selector(_workCancel)
 					    target: self
 					withObject: nil];
