@@ -526,29 +526,11 @@ static NSUInteger posForIndex(GSIArray array, NSUInteger index)
 
 - (NSUInteger) indexLessThanIndex: (NSUInteger)anIndex
 {
-  NSUInteger	pos;
-  NSRange	r;
-
   if (anIndex-- == 0)
     {
       return NSNotFound;
     }
-  if (_array == 0 || GSIArrayCount(_array) == 0
-    || (pos = posForIndex(_array, anIndex)) >= GSIArrayCount(_array))
-    {
-      return NSNotFound;
-    }
-  r = GSIArrayItemAtIndex(_array, pos).ext;
-  if (NSLocationInRange(anIndex, r))
-    {
-      return anIndex;
-    }
-  if (pos-- == 0)
-    {
-      return NSNotFound;
-    }
-  r = GSIArrayItemAtIndex(_array, pos).ext;
-  return NSMaxRange(r) - 1;
+  return [self indexLessThanOrEqualToIndex: anIndex];
 }
 
 - (NSUInteger) indexLessThanOrEqualToIndex: (NSUInteger)anIndex
@@ -556,15 +538,21 @@ static NSUInteger posForIndex(GSIArray array, NSUInteger index)
   NSUInteger	pos;
   NSRange	r;
 
-  if (_array == 0 || GSIArrayCount(_array) == 0
-    || (pos = posForIndex(_array, anIndex)) >= GSIArrayCount(_array))
+  if (_array == 0 || GSIArrayCount(_array) == 0)
     {
       return NSNotFound;
     }
-  r = GSIArrayItemAtIndex(_array, pos).ext;
-  if (NSLocationInRange(anIndex, r))
+  /* The position is that of the first range ending above the index, or the
+   * count of ranges if the index lies beyond them all.
+   */
+  pos = posForIndex(_array, anIndex);
+  if (pos < GSIArrayCount(_array))
     {
-      return anIndex;
+      r = GSIArrayItemAtIndex(_array, pos).ext;
+      if (NSLocationInRange(anIndex, r))
+	{
+	  return anIndex;
+	}
     }
   if (pos-- == 0)
     {

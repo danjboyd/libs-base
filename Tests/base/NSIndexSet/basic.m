@@ -60,7 +60,42 @@ int main(void)
       "indexLessThanIndex: below the first index is NSNotFound");
     PASS([s indexLessThanOrEqualToIndex: 5] == 5,
       "indexLessThanOrEqualToIndex: returns the index itself when present");
+    PASS([s indexLessThanIndex: 6] == 5,
+      "indexLessThanIndex: just past the last index returns the last index");
+    PASS([s indexLessThanIndex: 100] == 5,
+      "indexLessThanIndex: far past the last index returns the last index");
+    PASS([s indexLessThanOrEqualToIndex: 6] == 5,
+      "indexLessThanOrEqualToIndex: just past the last index"
+      " returns the last index");
+    PASS([s indexLessThanOrEqualToIndex: 100] == 5,
+      "indexLessThanOrEqualToIndex: far past the last index"
+      " returns the last index");
+    PASS([s indexLessThanOrEqualToIndex: 1] == NSNotFound,
+      "indexLessThanOrEqualToIndex: below the first index is NSNotFound");
   END_SET("NSIndexSet navigation")
+
+  START_SET("NSIndexSet navigation across ranges")
+    NSMutableIndexSet	*s = [NSMutableIndexSet indexSetWithIndex: 1];
+
+    [s addIndexesInRange: NSMakeRange(5, 2)];
+    PASS([s indexLessThanIndex: 4] == 1,
+      "indexLessThanIndex: in a gap returns the end of the range before it");
+    PASS([s indexLessThanOrEqualToIndex: 3] == 1,
+      "indexLessThanOrEqualToIndex: in a gap returns the end of the range"
+      " before it");
+    PASS([s indexLessThanIndex: 5] == 1,
+      "indexLessThanIndex: at the start of a range returns the end of the"
+      " range before it");
+    PASS([s indexLessThanIndex: 50] == 6,
+      "indexLessThanIndex: past the last range returns the last index");
+    PASS([s indexLessThanOrEqualToIndex: 50] == 6,
+      "indexLessThanOrEqualToIndex: past the last range returns the last"
+      " index");
+    PASS([[NSIndexSet indexSet] indexLessThanIndex: 50] == NSNotFound,
+      "indexLessThanIndex: of an empty set is NSNotFound");
+    PASS([[NSIndexSet indexSet] indexLessThanOrEqualToIndex: 50] == NSNotFound,
+      "indexLessThanOrEqualToIndex: of an empty set is NSNotFound");
+  END_SET("NSIndexSet navigation across ranges")
 
   START_SET("NSIndexSet equality and getIndexes")
     NSIndexSet	*s = [NSIndexSet indexSetWithIndexesInRange: NSMakeRange(2, 4)];
