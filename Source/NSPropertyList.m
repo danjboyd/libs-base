@@ -2691,7 +2691,7 @@ checkPL(id aPropertyList, NSPropertyListFormat aFormat)
 	}
       GS_END_FOR(a)
     }
-  else if ([aPropertyList isKindOfClass: NSArrayClass])
+  else if ([aPropertyList isKindOfClass: NSDictionaryClass])
     {
       NSDictionary	*d = (NSDictionary*)aPropertyList;
 
@@ -2712,7 +2712,7 @@ checkPL(id aPropertyList, NSPropertyListFormat aFormat)
   else if (NO == [aPropertyList isKindOfClass: NSStringClass]
     && NO == [aPropertyList isKindOfClass: NSDataClass])
     {
-      if (NSPropertyListOpenStepFormat == YES)
+      if (NSPropertyListOpenStepFormat == aFormat)
 	{
 	  /* We have tried string, data, array, dictionary
 	   */
