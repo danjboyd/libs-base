@@ -4053,12 +4053,19 @@ getBytes(void* dst, void* src, unsigned len, unsigned limit, unsigned *pos)
   const GSNativeChar	*thePath = [path fileSystemRepresentation];
   off_t			off;
   int			fd;
+  NSError		*error = nil;
 
   /* Check that the file is readable and find its length.
+   * getContentsOfFile() needs somewhere to store an error, and the caller
+   * may not want it.
    */
-  if (NO == getContentsOfFile(path, NULL, &off, (NSZone*)0, errorPtr))
+  if (NO == getContentsOfFile(path, NULL, &off, (NSZone*)0, &error))
     {
       DESTROY(self);
+      if (errorPtr)
+	{
+	  *errorPtr = error;
+	}
       return nil;
     }
 #if defined(_WIN32)
