@@ -174,6 +174,10 @@
 - (void) addObserver: (_NSKVOKeyObserver *)observer;
 - (instancetype) init;
 - (BOOL) isEmpty;
+/* Removes every observation, without messaging the observed object, which
+ * is being deallocated.
+ */
+- (void) objectDeallocated;
 - (NSArray *) observersForKey: (NSString *)key;
 
 /* The key observers a willChange locked, kept until the matching didChange

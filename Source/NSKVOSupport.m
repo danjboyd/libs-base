@@ -287,6 +287,10 @@ static NSDictionary *_kvoSettingChange = nil;
 
 
 // ########### Object - level Observation Info
+static void
+_removeNestedObserversAndOptionallyDependents(_NSKVOKeyObserver *keyObserver,
+  BOOL dependents);
+
 @implementation _NSKVOObservationInfo
 - (instancetype) init
 {
@@ -336,28 +340,40 @@ static NSDictionary *_kvoSettingChange = nil;
     }
 }
 
+/* Called when the observed object is deallocated (see
+ * _NSKVODeallocationSentinel) with observers still registered.  As on Cocoa
+ * (since macOS 10.13), those observations are removed without complaint.
+ * The object must not be messaged, nor reached through the key observers
+ * registered on it, so each key observer first forgets it; then the
+ * observers that key paths through it had registered on the objects it held
+ * are removed.
+ */
+- (void) objectDeallocated
+{
+  NSMutableArray	*keyObservers = [NSMutableArray new];
+
+  GS_MUTEX_LOCK(_lock);
+  for (NSArray *observersForKey in [_keyObserverMap objectEnumerator])
+    {
+      [keyObservers addObjectsFromArray: observersForKey];
+    }
+  [_keyObserverMap removeAllObjects];
+  GS_MUTEX_UNLOCK(_lock);
+
+  for (_NSKVOKeyObserver *keyObserver in keyObservers)
+    {
+      [keyObserver setIsRemoved: YES];
+      keyObserver.object = nil;
+    }
+  for (_NSKVOKeyObserver *keyObserver in keyObservers)
+    {
+      _removeNestedObserversAndOptionallyDependents(keyObserver, YES);
+    }
+  [keyObservers release];
+}
+
 - (void) dealloc
 {
-  if (![self isEmpty])
-    {
-      // We only want to flag for root observers: anything we created internally
-      // is fair game to be destroyed.
-      for (NSString *key in [_keyObserverMap keyEnumerator])
-        {
-          for (_NSKVOKeyObserver *keyObserver in
-               [_keyObserverMap objectForKey:key])
-            {
-              if (keyObserver.root)
-                {
-                  [NSException
-                     raise:NSInvalidArgumentException
-                    format:
-                      @"Object %@ deallocated with observers still registered.",
-                      keyObserver.object];
-                }
-            }
-        }
-    }
   [_keyObserverMap release];
   [_existingDependentKeys release];
   [_changeSets release];
@@ -519,11 +535,64 @@ static NSDictionary *_kvoSettingChange = nil;
 }
 @end
 
+/* Tells an object's observation info when the object is deallocated.  The
+ * observation info itself cannot tell: it is returned autoreleased by
+ * -observationInfo, so it may outlive the object.  The sentinel is an
+ * associated object which is never fetched, so the only reference to it is
+ * the object's, and it is released when the object is deallocated.
+ */
+@interface _NSKVODeallocationSentinel : NSObject
+{
+  _NSKVOObservationInfo	*_observationInfo;
+}
+- (instancetype) initWithObservationInfo: (_NSKVOObservationInfo *)info;
+@end
+
+@implementation _NSKVODeallocationSentinel
+- (instancetype) initWithObservationInfo: (_NSKVOObservationInfo *)info
+{
+  if (nil != (self = [super init]))
+    {
+      _observationInfo = RETAIN(info);
+    }
+  return self;
+}
+
+- (void) dealloc
+{
+  if (![_observationInfo isEmpty])
+    {
+      [_observationInfo objectDeallocated];
+    }
+  RELEASE(_observationInfo);
+  [super dealloc];
+}
+@end
+
+/* These have no value; their addresses are used as association keys. */
+static void *s_kvoObservationInfoAssociationKey;
+static void *s_kvoDeallocationSentinelKey;
+
 static _NSKVOObservationInfo *
 _createObservationInfoForObject(id object)
 {
-  _NSKVOObservationInfo *observationInfo = [_NSKVOObservationInfo new];
+  _NSKVOObservationInfo		*observationInfo = [_NSKVOObservationInfo new];
+  _NSKVODeallocationSentinel	*sentinel;
+
   [object setObservationInfo:observationInfo];
+  /* Only when the object keeps the observation info itself: not a proxy
+   * passing it to the object it stands for, nor a class with its own
+   * -setObservationInfo:.
+   */
+  if (objc_getAssociatedObject(object, &s_kvoObservationInfoAssociationKey)
+    == observationInfo)
+    {
+      sentinel = [[_NSKVODeallocationSentinel alloc]
+        initWithObservationInfo: observationInfo];
+      objc_setAssociatedObject(object, &s_kvoDeallocationSentinelKey,
+        sentinel, OBJC_ASSOCIATION_RETAIN);
+      [sentinel release];
+    }
   [observationInfo release];
   return observationInfo;
 }
@@ -970,9 +1039,6 @@ triggerChangeNotificationsForDependentKey: (NSString *) dependentKey
     @"responded to it: object %@, keypath %@, change %@.",
     object, keyPath, change];
 }
-
-static void *s_kvoObservationInfoAssociationKey; // has no value; pointer used
-                                                 // as an association key.
 
 - (void *) observationInfo
 {
