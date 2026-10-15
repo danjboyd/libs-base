@@ -79,7 +79,7 @@ typedef NS_OPTIONS(NSUInteger, NSAttributedStringEnumerationOptions)
 DEFINE_BLOCK_TYPE(GSAttributedStringEnumerationBlock, void,
   id value, NSRange range, BOOL *stop);
 DEFINE_BLOCK_TYPE(GSAttributedStringAttributesEnumerationBlock, void,
-  NSDictionary *attrs, NSRange range, BOOL *stop);
+  GS_GENERIC_CLASS(NSDictionary, NSAttributedStringKey, id)* attrs, NSRange range, BOOL *stop);
 #endif
 
 GS_EXPORT_CLASS
@@ -90,7 +90,8 @@ GS_EXPORT_CLASS
 //Creating an NSAttributedString
 - (id) initWithString: (NSString*)aString;
 - (id) initWithAttributedString: (NSAttributedString*)attributedString;
-- (id) initWithString: (NSString*)aString attributes: (NSDictionary*)attributes;
+- (id) initWithString: (NSString*)aString
+	 attributes: (GS_GENERIC_CLASS(NSDictionary, NSAttributedStringKey, id)*)attributes;
 
 //Retrieving character information
 - (NSUInteger) length;
@@ -102,9 +103,9 @@ GS_EXPORT_CLASS
 - (NSString*) string;					//Primitive method!
 
 //Retrieving attribute information
-- (NSDictionary*) attributesAtIndex: (NSUInteger)index
+- (GS_GENERIC_CLASS(NSDictionary, NSAttributedStringKey, id)*) attributesAtIndex: (NSUInteger)index
 		     effectiveRange: (NSRange*)aRange;	//Primitive method!
-- (NSDictionary*) attributesAtIndex: (NSUInteger)index
+- (GS_GENERIC_CLASS(NSDictionary, NSAttributedStringKey, id)*) attributesAtIndex: (NSUInteger)index
 	      longestEffectiveRange: (NSRange*)aRange
 			    inRange: (NSRange)rangeLimit;
 - (id) attribute: (NSAttributedStringKey)attributeName
@@ -145,12 +146,13 @@ GS_EXPORT_CLASS
 - (void) deleteCharactersInRange: (NSRange)aRange;
 
 //Changing attributes
-- (void) setAttributes: (NSDictionary*)attributes
+- (void) setAttributes: (GS_GENERIC_CLASS(NSDictionary, NSAttributedStringKey, id)*)attributes
 		 range: (NSRange)aRange;		//Primitive method!
 - (void) addAttribute: (NSAttributedStringKey)name
 		value: (id)value
 		range: (NSRange)aRange;
-- (void) addAttributes: (NSDictionary*)attributes range: (NSRange)aRange;
+- (void) addAttributes: (GS_GENERIC_CLASS(NSDictionary, NSAttributedStringKey, id)*)attributes
+		range: (NSRange)aRange;
 - (void) removeAttribute: (NSAttributedStringKey)name
 		   range: (NSRange)aRange;
 

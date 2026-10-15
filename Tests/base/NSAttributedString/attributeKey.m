@@ -34,6 +34,16 @@ int main()
   PASS([other isEqualToString: @"GSTestOther"],
     "a typed extensible enum is an NSString");
 
+  {
+    GS_GENERIC_CLASS(NSDictionary, NSAttributedStringKey, id)	*attrs;
+
+    attrs = [NSDictionary dictionaryWithObject: @"w" forKey: key];
+    [s setAttributes: attrs range: NSMakeRange(2, 1)];
+    attrs = [s attributesAtIndex: 2 effectiveRange: NULL];
+    PASS_EQUAL([attrs objectForKey: key], @"w",
+      "attribute dictionaries are keyed by NSAttributedStringKey");
+  }
+
   END_SET("NSAttributedStringKey")
 
   [arp release];
