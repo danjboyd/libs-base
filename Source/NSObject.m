@@ -895,6 +895,12 @@ NSDeallocateObject(id anObject)
 
       if (NSZombieEnabled)
 	{
+#ifdef OBJC_CAP_ARC
+	  /* object_dispose() releases the associated objects, but a zombie
+	   * is never disposed, so release them here as the object would.
+	   */
+	  objc_removeAssociatedObjects(anObject);
+#endif
 	  /* Replace the isa pointer etc to turn the object into a zombie.
 	   */
 	  GSMakeZombie(anObject, aClass);
