@@ -732,6 +732,119 @@ appendUIntData(NSMutableData *d, NSUInteger i)
   return newAttrString;
 }
 
+/* Calls block for each run of the attribute attrName (or, if byAttribute
+ * is NO, of all attributes) in range, which must lie within str, as
+ * described for -enumerateAttribute:inRange:options:usingBlock:.
+ */
+static void
+enumerateRuns(NSAttributedString *str, BOOL byAttribute,
+  NSString *attrName, NSRange range, NSAttributedStringEnumerationOptions opts,
+  GSAttributedStringEnumerationBlock block)
+{
+  BOOL		reverse = (opts & NSAttributedStringEnumerationReverse) ? YES : NO;
+  BOOL		longest;
+  BOOL		stop = NO;
+  NSUInteger	start = range.location;
+  NSUInteger	end = NSMaxRange(range);
+
+  longest = (opts & NSAttributedStringEnumerationLongestEffectiveRangeNotRequired)
+    ? NO : YES;
+  while (stop == NO && start < end)
+    {
+      NSRange		limit = NSMakeRange(start, end - start);
+      NSUInteger	index = (reverse ? end - 1 : start);
+      NSUInteger	length = [str length];
+      NSRange		r = limit;
+      id		value;
+
+      if (byAttribute == NO)
+	{
+	  if (longest)
+	    {
+	      value = [str attributesAtIndex: index
+		       longestEffectiveRange: &r
+				     inRange: limit];
+	    }
+	  else
+	    {
+	      value = [str attributesAtIndex: index effectiveRange: &r];
+	    }
+	}
+      else if (attrName == nil)
+	{
+	  value = nil;		// No attribute; one run covers the range.
+	}
+      else if (longest)
+	{
+	  value = [str attribute: attrName
+			 atIndex: index
+	   longestEffectiveRange: &r
+			 inRange: limit];
+	}
+      else
+	{
+	  value = [str attribute: attrName atIndex: index effectiveRange: &r];
+	}
+      r = NSIntersectionRange(r, limit);
+
+      IF_NO_ARC([value retain];)
+      CALL_BLOCK(block, value, r, &stop);
+      IF_NO_ARC([value release];)
+
+      /* The block may change the run it was given.  Going backwards that
+       * leaves the runs still to come where they were; going forwards
+       * they move by the change in length.
+       */
+      if (reverse)
+	{
+	  end = r.location;
+	}
+      else
+	{
+	  NSInteger	delta = (NSInteger)[str length] - (NSInteger)length;
+
+	  start = NSMaxRange(r) + delta;
+	  end += delta;
+	}
+    }
+}
+
+/**
+ * Calls block for each run of the receiver in range over which the value
+ * of the attribute named attrName is the same, with that value (nil where
+ * the attribute is not set), the run's range and a pointer to a stop flag
+ * the block may set to YES to end the enumeration.<br />
+ * With NSAttributedStringEnumerationReverse the runs are enumerated from
+ * the end of range.  With
+ * NSAttributedStringEnumerationLongestEffectiveRangeNotRequired adjacent
+ * runs with the same value may be reported separately, which is faster.<br />
+ * The block may change the receiver, if it is mutable, within the range
+ * it is given; the enumeration continues after that range.
+ */
+- (void) enumerateAttribute: (NSAttributedStringKey)attrName
+		    inRange: (NSRange)range
+		    options: (NSAttributedStringEnumerationOptions)opts
+		 usingBlock: (GSAttributedStringEnumerationBlock)block
+{
+  GS_RANGE_CHECK(range, [self length]);
+  enumerateRuns(self, YES, attrName, range, opts, block);
+}
+
+/**
+ * Calls block for each run of the receiver in range over which the
+ * attributes are the same, with the attributes dictionary, the run's
+ * range and a pointer to a stop flag, as described for
+ * -enumerateAttribute:inRange:options:usingBlock:.
+ */
+- (void) enumerateAttributesInRange: (NSRange)range
+			    options: (NSAttributedStringEnumerationOptions)opts
+			 usingBlock: (GSAttributedStringAttributesEnumerationBlock)block
+{
+  GS_RANGE_CHECK(range, [self length]);
+  enumerateRuns(self, NO, nil, range, opts,
+    (GSAttributedStringEnumerationBlock)block);
+}
+
 @end //NSAttributedString
 
 /**

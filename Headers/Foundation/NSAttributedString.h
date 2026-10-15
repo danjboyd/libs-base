@@ -60,6 +60,24 @@ extern "C" {
 #import	<Foundation/NSArray.h>
 #import	<Foundation/NSCoder.h>
 
+typedef NSString* NSAttributedStringKey;
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
+/** Options for the enumeration methods of NSAttributedString. */
+typedef NS_OPTIONS(NSUInteger, NSAttributedStringEnumerationOptions)
+{
+  /** Enumerate from the end of the range to its start. */
+  NSAttributedStringEnumerationReverse = (1UL << 1),
+  /** Adjacent runs with the same attributes may be reported separately. */
+  NSAttributedStringEnumerationLongestEffectiveRangeNotRequired = (1UL << 20)
+};
+
+DEFINE_BLOCK_TYPE(GSAttributedStringEnumerationBlock, void,
+  id value, NSRange range, BOOL *stop);
+DEFINE_BLOCK_TYPE(GSAttributedStringAttributesEnumerationBlock, void,
+  NSDictionary *attrs, NSRange range, BOOL *stop);
+#endif
+
 GS_EXPORT_CLASS
 @interface NSAttributedString : NSObject <NSCoding, NSCopying, NSMutableCopying>
 {
@@ -97,6 +115,17 @@ GS_EXPORT_CLASS
 //Extracting a substring
 - (NSAttributedString*) attributedSubstringFromRange: (NSRange)aRange;
 
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
+//Enumerating attributes
+- (void) enumerateAttribute: (NSAttributedStringKey)attrName
+		    inRange: (NSRange)range
+		    options: (NSAttributedStringEnumerationOptions)opts
+		 usingBlock: (GSAttributedStringEnumerationBlock)block;
+- (void) enumerateAttributesInRange: (NSRange)range
+			    options: (NSAttributedStringEnumerationOptions)opts
+			 usingBlock: (GSAttributedStringAttributesEnumerationBlock)block;
+#endif
+
 @end //NSAttributedString
 
 
@@ -133,8 +162,6 @@ GS_EXPORT_CLASS
 - (void) endEditing;
 
 @end //NSMutableAttributedString
-
-typedef NSString* NSAttributedStringKey;
 
 #endif /* GS_API_MACOSX */
 
