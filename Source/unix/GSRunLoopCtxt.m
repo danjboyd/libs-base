@@ -220,6 +220,7 @@ static void setPollfd(int fd, int event, GSRunLoopCtxtUnix *ctxt)
   unsigned	count;
   unsigned int	i;
   BOOL		immediate = NO;
+  BOOL		triggered = NO;
   BOOL		debug = GSDebugSet(@"NSRunLoop");
 
   i = GSIArrayCount(watchers);
@@ -395,8 +396,11 @@ static void setPollfd(int fd, int event, GSRunLoopCtxtUnix *ctxt)
 
   /*
    * Trigger any watchers which are set up to for every runloop wait.
+   * A watcher that triggers counts as input handled, so the run loop
+   * returns rather than waiting on for other input.
    */
   count =  GSIArrayCount(_trigger);
+  triggered = (count > 0);
   while (count-- > 0)
     {
       GSRunLoopWatcher	*watcher;
@@ -432,7 +436,7 @@ static void setPollfd(int fd, int event, GSRunLoopCtxtUnix *ctxt)
   if (poll_return == 0)
     {
       completed = YES;
-      return NO;
+      return triggered;
     }
 
   /*
@@ -635,6 +639,7 @@ static void setPollfd(int fd, int event, GSRunLoopCtxtUnix *ctxt)
   unsigned		count;
   unsigned		i;
   BOOL			immediate = NO;
+  BOOL			triggered = NO;
 
   i = GSIArrayCount(watchers);
 
@@ -813,8 +818,11 @@ static void setPollfd(int fd, int event, GSRunLoopCtxtUnix *ctxt)
 
   /*
    * Trigger any watchers which are set up to for every runloop wait.
+   * A watcher that triggers counts as input handled, so the run loop
+   * returns rather than waiting on for other input.
    */
   count = GSIArrayCount(_trigger);
+  triggered = (count > 0);
   while (count-- > 0)
     {
       GSRunLoopWatcher	*watcher;
@@ -850,7 +858,7 @@ static void setPollfd(int fd, int event, GSRunLoopCtxtUnix *ctxt)
   if (select_return == 0)
     {
       completed = YES;
-      return NO;
+      return triggered;
     }
 
   /*
