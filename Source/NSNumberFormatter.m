@@ -2224,6 +2224,17 @@ static NSUInteger _defaultBehavior = NSNumberFormatterBehavior10_4;
 	}
     }
 
+  /* The digit counts not set explicitly are the defaults for the style,
+   * as ICU has them for every style except NSNumberFormatterNoStyle,
+   * which shows no fraction digits.  Set that default before the explicit
+   * values, so that ICU raises it to an explicit minimum.
+   */
+  if (NSNumberFormatterNoStyle == internal->_style
+    && internal->_attributes[UNUM_MAX_FRACTION_DIGITS] < 0)
+    {
+      unum_setAttribute (internal->_formatter, UNUM_MAX_FRACTION_DIGITS, 0);
+    }
+
   for (idx = 0; idx < MAX_ATTRIBUTES; ++idx)
     {
       if (internal->_attributes[idx] >= 0)
@@ -2231,16 +2242,6 @@ static NSUInteger _defaultBehavior = NSNumberFormatterBehavior10_4;
           unum_setAttribute (internal->_formatter, idx,
 	    internal->_attributes[idx]);
 	}
-    }
-
-  /* The digit counts not set explicitly are the defaults for the style,
-   * as ICU has them for every style except NSNumberFormatterNoStyle,
-   * which shows no fraction digits.
-   */
-  if (NSNumberFormatterNoStyle == internal->_style
-    && internal->_attributes[UNUM_MAX_FRACTION_DIGITS] < 0)
-    {
-      unum_setAttribute (internal->_formatter, UNUM_MAX_FRACTION_DIGITS, 0);
     }
 #else
   return;

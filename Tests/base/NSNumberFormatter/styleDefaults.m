@@ -84,6 +84,20 @@ int main()
       "a maximum set after the style is used")
     PASS([f maximumFractionDigits] == 1,
       "a maximum set after the style is reported")
+
+    f = formatter(@"en_US");
+    [f setMinimumFractionDigits: 2];
+    PASS_EQUAL(format(f, 1.0), @"1.00",
+      "a minimum of 2 fraction digits is used with no style")
+    [f setLocale: AUTORELEASE([[NSLocale alloc]
+      initWithLocaleIdentifier: @"en_GB"])];
+    PASS_EQUAL(format(f, 1.0), @"1.00",
+      "a minimum of 2 fraction digits survives -setLocale:")
+    [f setNumberStyle: NSNumberFormatterNoStyle];
+    PASS_EQUAL(format(f, 1.0), @"1.00",
+      "a minimum of 2 fraction digits survives setting no style")
+    PASS([f minimumFractionDigits] == 2,
+      "a minimum of 2 fraction digits is reported")
   END_SET("NSNumberFormatter style defaults")
 
   [arp release];
