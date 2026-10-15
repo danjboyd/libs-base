@@ -2,12 +2,45 @@
 #import <Foundation/NSArray.h>
 #import <Foundation/NSAutoreleasePool.h>
 #import <Foundation/NSDate.h>
+#import <Foundation/NSValue.h>
 #import <Foundation/NSRunLoop.h>
 #import <Foundation/NSString.h>
+#import <Foundation/NSThread.h>
+
+/* Queues blocks on the main run loop from a thread of its own. */
+@interface BlockQueuer : NSObject
+{
+@public
+  NSMutableArray	*calls;
+}
+- (void) queue: (id)ignored;
+@end
+
+@implementation BlockQueuer
+- (void) queue: (id)ignored
+{
+  NSAutoreleasePool	*pool = [NSAutoreleasePool new];
+  NSRunLoop		*main = [NSRunLoop mainRunLoop];
+  NSMutableArray	*c = calls;
+  int			i;
+
+  for (i = 0; i < 100; i++)
+    {
+      NSString	*s = [NSString stringWithFormat: @"%d", i];
+
+      [main performBlock: ^{
+        [c addObject: [NSArray arrayWithObjects: s,
+          [NSNumber numberWithBool: [NSThread isMainThread]], nil]]; }];
+    }
+  [pool release];
+}
+@end
 
 /* -performBlock: and -performInModes:block: call the block once, before
    the next iteration of the loop in one of the modes; NSRunLoopCommonModes
-   covers the default, modal panel and event tracking modes. */
+   covers the default, modal panel and event tracking modes.  Blocks may be
+   queued from another thread: they run on the loop's own thread, in the
+   order queued. */
 
 int main()
 {
@@ -58,6 +91,48 @@ int main()
   [run runMode: NSDefaultRunLoopMode beforeDate: past];
   PASS_EQUAL(calls, [NSArray arrayWithObject: @"common"],
     "NSRunLoopCommonModes includes the default mode");
+
+  [calls removeAllObjects];
+  [run performSelector: @selector(addObject:)
+                target: calls
+              argument: @"selector"
+                 order: 0
+                 modes: [NSArray arrayWithObject: NSDefaultRunLoopMode]];
+  [run performBlock: ^{ [calls addObject: @"block"]; }];
+  [run runMode: NSDefaultRunLoopMode beforeDate: past];
+  PASS_EQUAL(calls, ([NSArray arrayWithObjects: @"selector", @"block", nil]),
+    "blocks and selector performers of the same order run as queued");
+
+  {
+    BlockQueuer	*q = AUTORELEASE([BlockQueuer new]);
+    NSDate	*until = [NSDate dateWithTimeIntervalSinceNow: 5.0];
+    BOOL	ordered = YES;
+    BOOL	onMain = YES;
+    int		i;
+
+    q->calls = [NSMutableArray array];
+    [NSThread detachNewThreadSelector: @selector(queue:)
+                             toTarget: q
+                           withObject: nil];
+    while ([q->calls count] < 100 && [until timeIntervalSinceNow] > 0)
+      {
+        [run runMode: NSDefaultRunLoopMode
+          beforeDate: [NSDate dateWithTimeIntervalSinceNow: 0.05]];
+      }
+    PASS([q->calls count] == 100,
+      "blocks queued from another thread run in the main loop");
+    for (i = 0; i < (int)[q->calls count]; i++)
+      {
+        NSArray	*call = [q->calls objectAtIndex: i];
+
+        if ([[call objectAtIndex: 0] intValue] != i)
+          ordered = NO;
+        if ([[call objectAtIndex: 1] boolValue] == NO)
+          onMain = NO;
+      }
+    PASS(ordered && onMain,
+      "they run on the main thread in the order queued");
+  }
 
   [calls removeAllObjects];
   [run performInModes: [NSArray array]

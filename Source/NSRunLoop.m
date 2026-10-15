@@ -68,21 +68,10 @@ NSRunLoopMode const NSRunLoopCommonModes = @"NSRunLoopCommonModes";
 
 static NSDate	*theFuture = nil;
 
-/* The modes NSRunLoopCommonModes stands for.  The last two are defined
- * in AppKit, so their names are given here.
+/* The modes NSRunLoopCommonModes stands for, set up in +initialize.  The
+ * last two are defined in AppKit, so their names are given here.
  */
-static NSArray *
-commonModes(void)
-{
-  static NSArray	*modes = nil;
-
-  if (nil == modes)
-    {
-      modes = [[NSArray alloc] initWithObjects: NSDefaultRunLoopMode,
-        @"NSModalPanelRunLoopMode", @"NSEventTrackingRunLoopMode", nil];
-    }
-  return modes;
-}
+static NSArray	*theCommonModes = nil;
 
 
 
@@ -508,6 +497,7 @@ typedef struct {
   GSRunLoopCtxt		*contexts[64];		/* Context for each mode */
   NSThread		*currentThread;		/* Not retained */
   NSString		*currentMode;		/* Not retained */
+  NSThread		*owner;			/* Not retained */
 } RunLoopInternal;
                                
 #define myvars	((RunLoopInternal*)_internal)
@@ -933,6 +923,9 @@ contextForMode(RunLoopInternal *loop, NSString *mode, BOOL shouldCreate)
 {
   if (self == [NSRunLoop class])
     {
+      theCommonModes = [[NSArray alloc] initWithObjects: NSDefaultRunLoopMode,
+        @"NSModalPanelRunLoopMode", @"NSEventTrackingRunLoopMode", nil];
+      RELEASE([NSObject leakAt: &theCommonModes]);
       [self currentRunLoop];
       theFuture = RETAIN([NSDate distantFuture]);
       RELEASE([NSObject leakAt: &theFuture]);
@@ -960,6 +953,11 @@ static GSMainQueueDrainer 	*drainer = nil;
       /* The loop must only be used by the specified thread.
        */
       ((RunLoopInternal*)current->_internal)->currentThread = aThread;
+      /* Remember the thread the loop belongs to, for performers queued
+       * from other threads.
+       */
+      ((RunLoopInternal*)current->_internal)->owner
+        = (nil == aThread) ? t : aThread;
 
       /* If this is the main thread, set up a housekeeping timer.
        */
@@ -1006,7 +1004,7 @@ static GSMainQueueDrainer 	*drainer = nil;
            * are tracked as well as in the default mode.
            */
           {
-            NSEnumerator	*e = [commonModes() objectEnumerator];
+            NSEnumerator	*e = [theCommonModes objectEnumerator];
             NSString		*mode;
 
             while ((mode = [e nextObject]) != nil)
@@ -1605,7 +1603,7 @@ updateTimer(NSTimer *t, NSDate *d, NSTimeInterval now)
     {
       if ([mode isEqual: NSRunLoopCommonModes])
         {
-          NSEnumerator	*c = [commonModes() objectEnumerator];
+          NSEnumerator	*c = [theCommonModes objectEnumerator];
 
           while ((mode = [c nextObject]) != nil)
             {
@@ -1621,11 +1619,25 @@ updateTimer(NSTimer *t, NSDate *d, NSTimeInterval now)
         }
     }
   performer = [[GSRunLoopBlockPerformer alloc] initWithBlock: block];
-  [self performSelector: @selector(fire)
-                 target: performer
-               argument: nil
-                  order: 0
-                  modes: expanded];
+  if (nil == myvars->owner || GSCurrentThread() == myvars->owner)
+    {
+      [self performSelector: @selector(fire)
+                     target: performer
+                   argument: nil
+                      order: 0
+                      modes: expanded];
+    }
+  else
+    {
+      /* Another thread's loop: queue the block through the locked
+       * performer queue of that thread, which also wakes its loop up.
+       */
+      [performer performSelector: @selector(fire)
+                        onThread: myvars->owner
+                      withObject: nil
+                   waitUntilDone: NO
+                           modes: expanded];
+    }
   RELEASE(performer);
 }
 

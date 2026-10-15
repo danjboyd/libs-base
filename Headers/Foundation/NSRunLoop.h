@@ -108,15 +108,17 @@ GS_EXPORT_CLASS
 - (void) performBlock: (GSRunLoopBlock)block;
 
 /**
- * Sets up block to be called once, before the next iteration of the
- * loop in any of modes.  The block is copied, and released once it has
- * been called.  NSRunLoopCommonModes in modes stands for
- * NSDefaultRunLoopMode, NSModalPanelRunLoopMode and
+ * Sets up block to be called once, on the thread the receiver belongs
+ * to, the next time the loop runs in any of modes.  The block is copied,
+ * and released once it has been called.  NSRunLoopCommonModes in modes
+ * stands for NSDefaultRunLoopMode, NSModalPanelRunLoopMode and
  * NSEventTrackingRunLoopMode.<br />
- * As with -performSelector:target:argument:order:modes: the block is
- * queued in the receiver directly, so this should be called from the
- * thread the receiver belongs to.  The receiver is not woken up, so the
- * block is called the next time the loop runs in one of the modes.<br />
+ * This may be called from any thread, as in Cocoa.  From the receiver's
+ * own thread the block is queued directly, in order with the performers
+ * of -performSelector:target:argument:order:modes:.  From another thread
+ * it goes through that thread's locked queue, as with
+ * -performSelector:onThread:withObject:waitUntilDone:modes:, which also
+ * wakes the receiver up; it raises if that thread has finished.<br />
  * If modes is empty, this method has no effect.
  */
 - (void) performInModes: (NSArray*)modes
