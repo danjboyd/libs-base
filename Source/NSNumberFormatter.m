@@ -297,9 +297,13 @@ GS_PRIVATE_INTERNAL(NSNumberFormatter)
     && key < sizeof(_attributes) / sizeof(*_attributes),
     NSInvalidArgumentException);
 #if GS_USE_ICU == 1
-  if (_attributes[key] <= 0)
+  if (_attributes[key] < 0)
     {
-      _attributes[key] = unum_getAttribute (_formatter, key);
+      /* Not set explicitly: answer the value the formatter has for the
+       * current style and locale.  It must not be stored, or it would be
+       * kept as if set explicitly when the style changes.
+       */
+      return unum_getAttribute (_formatter, key);
     }
 #endif
   return _attributes[key];
@@ -759,8 +763,6 @@ static NSUInteger _defaultBehavior = NSNumberFormatterBehavior10_4;
 	  return nil;
 	}
 #endif
-      
-      [self setMaximumFractionDigits: 0];
     }  
   return self;
 }
@@ -2229,6 +2231,16 @@ static NSUInteger _defaultBehavior = NSNumberFormatterBehavior10_4;
           unum_setAttribute (internal->_formatter, idx,
 	    internal->_attributes[idx]);
 	}
+    }
+
+  /* The digit counts not set explicitly are the defaults for the style,
+   * as ICU has them for every style except NSNumberFormatterNoStyle,
+   * which shows no fraction digits.
+   */
+  if (NSNumberFormatterNoStyle == internal->_style
+    && internal->_attributes[UNUM_MAX_FRACTION_DIGITS] < 0)
+    {
+      unum_setAttribute (internal->_formatter, UNUM_MAX_FRACTION_DIGITS, 0);
     }
 #else
   return;
