@@ -299,7 +299,17 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 @protocol NSSecureCoding <NSCoding>
+/**
+ * Answers YES if the class decodes its instances securely, checking the
+ * class of each object it decodes.  As in Cocoa, this is a class property
+ * where the compiler supports them, so Swift imports it as a static
+ * property; the getter is the class method +supportsSecureCoding.
+ */
+#if __has_feature(objc_class_property)
+@property (class, readonly) BOOL supportsSecureCoding;
+#else
 + (BOOL) supportsSecureCoding;
+#endif
 @end
 
 
