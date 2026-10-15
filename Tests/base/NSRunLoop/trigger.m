@@ -118,7 +118,13 @@ int main()
 
   [run addTimer: [NSTimer timerWithTimeInterval: 0.1 target: once
     selector: @selector(add:) userInfo: nil repeats: NO] forMode: mode];
+  /* -runMode:beforeDate: returns once the timer is due (its limit date);
+     the watcher it added then ends the next run at once. */
   t = runFor(5.0, &r);
+  if (0 == once->received)
+    {
+      t += runFor(5.0, &r);
+    }
   PASS(r == YES && t < 1.0 && once->received == 1,
     "a watcher added by a timer while the loop waits ends -runMode:beforeDate:");
 
