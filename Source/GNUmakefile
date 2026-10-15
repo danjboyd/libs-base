@@ -176,6 +176,7 @@ GSHTTPURLHandle.m \
 GSICUString.m \
 GSOrderedSet.m \
 GSPrivateHash.m \
+GSProtocol.m \
 GSQuickSort.m \
 GSRunLoopCtxt.m \
 GSRunLoopScheduler.m \
