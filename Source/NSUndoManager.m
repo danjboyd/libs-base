@@ -32,7 +32,57 @@
 #import "Foundation/NSUndoManager.h"
 
 /*
+ *	Private class for an undo action registered as a block.
+ *	Like an NSInvocation, it answers its -target and performs the
+ *	action on -invoke, so an undo group can hold both.  The target is
+ *	not retained, as in -registerUndoWithTarget:selector:object:.
+ */
+@interface	GSUndoBlockAction : NSObject
+{
+  id			target;
+  GSUndoManagerHandler	handler;
+}
+- (id) initWithTarget: (id)aTarget handler: (GSUndoManagerHandler)aHandler;
+- (void) invoke;
+- (id) target;
+@end
+
+@implementation	GSUndoBlockAction
+
+- (void) dealloc
+{
+  Block_release(handler);
+  [super dealloc];
+}
+
+- (id) initWithTarget: (id)aTarget handler: (GSUndoManagerHandler)aHandler
+{
+  self = [super init];
+  if (self)
+    {
+      target = aTarget;
+      handler = Block_copy(aHandler);
+    }
+  return self;
+}
+
+- (void) invoke
+{
+  CALL_BLOCK(handler, target);
+}
+
+- (id) target
+{
+  return target;
+}
+
+@end
+
+
+
+/*
  *	Private class for grouping undo/redo actions.
+ *	An action is an NSInvocation or a GSUndoBlockAction.
  */
 @interface	PrivateUndoGroup : NSObject
 {
@@ -43,7 +93,7 @@
 - (NSMutableArray*) actions;
 
 - (NSString*) actionName;
-- (void) addInvocation: (NSInvocation*)inv;
+- (void) addInvocation: (id)inv;
 - (id) initWithParent: (PrivateUndoGroup*)parent;
 - (void) orphan;
 - (PrivateUndoGroup*) parent;
@@ -64,7 +114,7 @@
   return actionName;
 }
 
-- (void) addInvocation: (NSInvocation*)inv
+- (void) addInvocation: (id)inv
 {
   if (actions == nil)
     {
@@ -124,7 +174,7 @@
 
       while (i-- > 0)
 	{
-	  NSInvocation	*inv = [actions objectAtIndex: i];
+	  id	inv = [actions objectAtIndex: i];
 
 	  if ([inv target] == target)
 	    {
@@ -154,6 +204,7 @@
 @interface NSUndoManager (Private)
 - (void) _begin;
 - (void) _loop: (id)arg;
+- (void) _registerAction: (id)action;
 @end
 
 @implementation NSUndoManager (Private)
@@ -192,6 +243,39 @@
       [self endUndoGrouping];
     }
   _runLoopGroupingPending = NO;
+}
+
+/* Adds an action (an NSInvocation or a GSUndoBlockAction) to the current
+ * group, as described for -registerUndoWithTarget:selector:object:.
+ */
+- (void) _registerAction: (id)action
+{
+  if (_group == nil)
+    {
+      if ([self groupsByEvent])
+	{
+	  [self _begin];
+	}
+      else
+	{
+	  [NSException raise: NSInternalInconsistencyException
+		       format: @"registerUndo without beginUndoGrouping"];
+	}
+    }
+  [_group addInvocation: action];
+  if (_isUndoing == NO && _isRedoing == NO)
+    {
+      [_redoStack removeAllObjects];
+    }
+  if ((_runLoopGroupingPending == NO) && ([self groupsByEvent] == YES))
+    {
+      [[NSRunLoop currentRunLoop] performSelector: @selector(_loop:)
+				  target: self
+				  argument: nil
+				  order: NSUndoCloseGroupingRunLoopOrdering
+				  modes: _modes];
+      _runLoopGroupingPending = YES;
+    }
 }
 @end
 
@@ -734,21 +818,7 @@
     {
       NSMethodSignature	*sig;
       NSInvocation	*inv;
-      PrivateUndoGroup	*g;
 
-      if (_group == nil)
-	{
-	  if ([self groupsByEvent])
-	    {
-	      [self _begin];
-	    }
-	  else
-	    {
-	      [NSException raise: NSInternalInconsistencyException
-			   format: @"registerUndo without beginUndoGrouping"];
-	    }
-	}
-      g = _group;
       sig = [target methodSignatureForSelector: aSelector];
       NSAssert2(sig,@"No methodSignatureForSelector:%@ for target of class %@",
 		NSStringFromSelector(aSelector),
@@ -758,20 +828,37 @@
       [inv setTarget: target];
       [inv setSelector: aSelector];
       [inv setArgument: &anObject atIndex: 2];
-      [g addInvocation: inv];
-      if (_isUndoing == NO && _isRedoing == NO)
+      [self _registerAction: inv];
+    }
+}
+
+/**
+ * Registers an undo operation as a block.
+ * When the operation is undone (or redone), undoHandler is called with
+ * target as its argument.  The handler is copied; the target is not
+ * retained, so a target which goes away should be removed with
+ * [-removeAllActionsWithTarget:].<br />
+ * Registration, grouping and the redo stack are handled as for
+ * [-registerUndoWithTarget:selector:object:], so a handler which
+ * registers an operation while it is being undone registers the redo
+ * operation.
+ */
+- (void) registerUndoWithTarget: (id)target
+			handler: (GSUndoManagerHandler)undoHandler
+{
+  if (_disableCount == 0)
+    {
+      GSUndoBlockAction	*action;
+
+      if (undoHandler == NULL)
 	{
-	  [_redoStack removeAllObjects];
+	  [NSException raise: NSInvalidArgumentException
+		      format: @"registerUndoWithTarget:handler: nil handler"];
 	}
-      if ((_runLoopGroupingPending == NO) && ([self groupsByEvent] == YES))
-	{
-	  [[NSRunLoop currentRunLoop] performSelector: @selector(_loop:)
-				      target: self
-				      argument: nil
-				      order: NSUndoCloseGroupingRunLoopOrdering
-				      modes: _modes];
-	  _runLoopGroupingPending = YES;
-	}
+      action = [[GSUndoBlockAction alloc] initWithTarget: target
+						 handler: undoHandler];
+      [self _registerAction: action];
+      RELEASE(action);
     }
 }
 

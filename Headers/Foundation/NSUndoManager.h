@@ -42,6 +42,13 @@ enum {
   NSUndoCloseGroupingRunLoopOrdering = 350000
 };
 
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_11, GS_API_LATEST)
+/** The block registered by -registerUndoWithTarget:handler:, called
+ * with the target when the operation is undone.
+ */
+DEFINE_BLOCK_TYPE(GSUndoManagerHandler, void, id target);
+#endif
+
 /* Public notification */
 
 /**
@@ -130,6 +137,10 @@ GS_EXPORT_CLASS
 - (void) registerUndoWithTarget: (id)target
 		       selector: (SEL)aSelector
 			 object: (id)anObject;
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_11, GS_API_LATEST)
+- (void) registerUndoWithTarget: (id)target
+			handler: (GSUndoManagerHandler)undoHandler;
+#endif
 - (void) removeAllActions;
 - (void) removeAllActionsWithTarget: (id)target;
 - (NSArray*) runLoopModes;
