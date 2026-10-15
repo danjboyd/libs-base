@@ -60,7 +60,11 @@ extern "C" {
 #import	<Foundation/NSArray.h>
 #import	<Foundation/NSCoder.h>
 
-typedef NSString* NSAttributedStringKey;
+/** The name of an attribute of an attributed string.  Swift imports it
+ * as NSAttributedString.Key.
+ */
+typedef NSString* NSAttributedStringKey
+  NS_SWIFT_NAME(NSAttributedString.Key) NS_TYPED_EXTENSIBLE_ENUM;
 
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_6, GS_API_LATEST)
 /** Options for the enumeration methods of NSAttributedString. */
@@ -103,10 +107,10 @@ GS_EXPORT_CLASS
 - (NSDictionary*) attributesAtIndex: (NSUInteger)index
 	      longestEffectiveRange: (NSRange*)aRange
 			    inRange: (NSRange)rangeLimit;
-- (id) attribute: (NSString*)attributeName
+- (id) attribute: (NSAttributedStringKey)attributeName
 	 atIndex: (NSUInteger)index
   effectiveRange: (NSRange*)aRange;
-- (id) attribute: (NSString*)attributeName atIndex: (NSUInteger)index
+- (id) attribute: (NSAttributedStringKey)attributeName atIndex: (NSUInteger)index
   longestEffectiveRange: (NSRange*)aRange inRange: (NSRange)rangeLimit;
 
 //Comparing attributed strings
@@ -143,9 +147,12 @@ GS_EXPORT_CLASS
 //Changing attributes
 - (void) setAttributes: (NSDictionary*)attributes
 		 range: (NSRange)aRange;		//Primitive method!
-- (void) addAttribute: (NSString*)name value: (id)value range: (NSRange)aRange;
+- (void) addAttribute: (NSAttributedStringKey)name
+		value: (id)value
+		range: (NSRange)aRange;
 - (void) addAttributes: (NSDictionary*)attributes range: (NSRange)aRange;
-- (void) removeAttribute: (NSString*)name range: (NSRange)aRange;
+- (void) removeAttribute: (NSAttributedStringKey)name
+		   range: (NSRange)aRange;
 
 //Changing characters and attributes
 - (void) appendAttributedString: (NSAttributedString*)attributedString;

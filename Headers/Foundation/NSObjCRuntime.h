@@ -217,6 +217,22 @@ extern "C" {
 #endif
 
 /*
+ * Mark a typedef as a family of constants, such as the names of string
+ * attributes, so that Swift imports it as a type of its own whose
+ * constants are its members (NSAttributedString.Key.font for
+ * NSFontAttributeName).  An extensible one can gain new constants.
+ */
+#if __has_attribute(swift_wrapper)
+#  define NS_TYPED_ENUM __attribute__((swift_wrapper(enum)))
+#  define NS_TYPED_EXTENSIBLE_ENUM __attribute__((swift_wrapper(struct)))
+#else
+#  define NS_TYPED_ENUM
+#  define NS_TYPED_EXTENSIBLE_ENUM
+#endif
+#define NS_STRING_ENUM NS_TYPED_ENUM
+#define NS_EXTENSIBLE_STRING_ENUM NS_TYPED_EXTENSIBLE_ENUM
+
+/*
  * Backwards compatibility macro for instance type.
  */
 #if !__has_feature(objc_instancetype)
