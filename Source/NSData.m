@@ -604,6 +604,57 @@ failure:
 
 
 
+/* Sets *errorPtr, if errorPtr is not NULL, to the Cocoa error for a
+ * failure to write path, with the code chosen from the underlying system
+ * error, if there is one.
+ */
+static void
+setWriteError(NSError **errorPtr, NSString *path, NSError *underlying)
+{
+  NSInteger	code = NSFileWriteUnknownError;
+  NSDictionary	*userInfo;
+
+  if (NULL == errorPtr)
+    {
+      return;
+    }
+  if ([[underlying domain] isEqualToString: NSPOSIXErrorDomain])
+    {
+      switch ([underlying code])
+	{
+	  case ENOENT:
+	  case ENOTDIR:
+	    code = NSFileNoSuchFileError;
+	    break;
+	  case EACCES:
+	  case EPERM:
+	    code = NSFileWriteNoPermissionError;
+	    break;
+	  case ENAMETOOLONG:
+	    code = NSFileWriteInvalidFileNameError;
+	    break;
+#ifdef EROFS
+	  case EROFS:
+	    code = NSFileWriteVolumeReadOnlyError;
+	    break;
+#endif
+	  case ENOSPC:
+#ifdef EDQUOT
+	  case EDQUOT:
+#endif
+	    code = NSFileWriteOutOfSpaceError;
+	    break;
+	}
+    }
+  userInfo = [NSDictionary dictionaryWithObjectsAndKeys:
+    path, NSFilePathErrorKey,
+    underlying, NSUnderlyingErrorKey,
+    nil];
+  *errorPtr = [NSError errorWithDomain: NSCocoaErrorDomain
+				  code: code
+			      userInfo: userInfo];
+}
+
 /**
  *  <p>Class for storing a byte array.  Methods for initializing from memory a
  *  file, or the network are provided, as well as the ability to write to a
@@ -1972,6 +2023,7 @@ failure:
   FILE		*theFile;
   BOOL		useAuxiliaryFile = NO;
   BOOL		error_BadPath = YES;
+  NSError	*underlying = nil;
 
   wthePath[0] = L'\0';
   wtheResolvedPath[0] = L'\0';
@@ -1986,6 +2038,13 @@ failure:
   if (error_BadPath)
     {
       NSWarnMLog(@"Open (%@) attempt failed - bad path",path);
+      if (errorPtr != NULL)
+	{
+	  *errorPtr = [NSError errorWithDomain: NSCocoaErrorDomain
+	    code: NSFileWriteInvalidFileNameError
+	    userInfo: [NSDictionary dictionaryWithObjectsAndKeys:
+	      path, NSFilePathErrorKey, nil]];
+	}
       return NO;
     }
 
@@ -2081,9 +2140,10 @@ failure:
 	{
 	  DWORD err = GetLastError();
 
+	  underlying = [NSError _systemError: err];
 	  NSWarnMLog(@"GetTempFileName (%@) failed - %@",
 	    [NSString stringWithCharacters: tempDir length: wcslen(tempDir)],
-	    [NSError _systemError: err]);
+	    underlying);
 	  goto failure;
 	}
     }
@@ -2097,9 +2157,10 @@ failure:
     {
       /* Something went wrong; we weren't
        * even able to open the file. */
+      underlying = [NSError _last];
       NSWarnMLog(@"Open (%@) failed - %@",
 	[NSString stringWithCharacters: wthePath length: wcslen(wthePath)],
-	  [NSError _last]);
+	  underlying);
       goto failure;
     }
 
@@ -2111,9 +2172,10 @@ failure:
   if (c < (int)[self length])        /* We failed to write everything for
                                  * some reason. */
     {
+      underlying = [NSError _last];
       NSWarnMLog(@"Fwrite (%@) failed - %@",
 	[NSString stringWithCharacters: wthePath length: wcslen(wthePath)],
-	[NSError _last]);
+	underlying);
       goto failure;
     }
 
@@ -2124,9 +2186,10 @@ failure:
                                  * closing the file, but we got here,
                                  * so we need to deal with it. */
     {
+      underlying = [NSError _last];
       NSWarnMLog(@"Fclose (%@) failed - %@",
 	[NSString stringWithCharacters: wthePath length: wcslen(wthePath)],
-	[NSError _last]);
+	underlying);
       goto failure;
     }
 
@@ -2207,14 +2270,13 @@ failure:
 
       if (c != 0)               /* Many things could go wrong, I guess. */
         {
-	  NSError	*e = [NSError _systemError: err];
-
+	  underlying = [NSError _systemError: err];
           NSWarnMLog(@"Rename ('%@' to '%@') failed - %@",
 	    [NSString stringWithCharacters: wthePath
 				    length: wcslen(wthePath)],
 	    [NSString stringWithCharacters: destPathForMove
 				    length: wcslen(destPathForMove)],
-	    e);
+	    underlying);
           goto failure;
         }
 
@@ -2264,6 +2326,7 @@ failure:
     {
       _wunlink(wthePath);
     }
+  setWriteError(errorPtr, path, underlying);
   return NO;
 
 #else
@@ -2274,6 +2337,7 @@ failure:
   FILE		*theFile;
   BOOL		useAuxiliaryFile = NO;
   BOOL		error_BadPath = YES;
+  NSError	*underlying = nil;
 
   if (writeOptionsMask & NSDataWritingAtomic)
     {
@@ -2293,6 +2357,13 @@ failure:
   if (error_BadPath)
     {
       NSWarnMLog(@"Open (%@) attempt failed - bad path",path);
+      if (errorPtr != NULL)
+	{
+	  *errorPtr = [NSError errorWithDomain: NSCocoaErrorDomain
+	    code: NSFileWriteInvalidFileNameError
+	    userInfo: [NSDictionary dictionaryWithObjectsAndKeys:
+	      path, NSFilePathErrorKey, nil]];
+	}
       return NO;
     }
 
@@ -2313,7 +2384,8 @@ failure:
       thePath[length + 6] = '\0';
       if ((desc = mkstemp(thePath)) < 0)
 	{
-          NSWarnMLog(@"mkstemp (%s) failed - %@", thePath, [NSError _last]);
+          underlying = [NSError _last];
+          NSWarnMLog(@"mkstemp (%s) failed - %@", thePath, underlying);
           goto failure;
 	}
       /* Created writable files are supposed to only have read and/or
@@ -2325,6 +2397,7 @@ failure:
       fchmod(desc, 0666 & ~mask);
       if ((theFile = fdopen(desc, "w")) == 0)
 	{
+	  underlying = [NSError _last];
 	  close(desc);
 	}
     }
@@ -2345,7 +2418,8 @@ failure:
       strncat(thePath, "XXXXXX", 6);
       if (mktemp(thePath) == 0)
 	{
-          NSWarnMLog(@"mktemp (%s) failed - %@", thePath, [NSError _last]);
+          underlying = [NSError _last];
+          NSWarnMLog(@"mktemp (%s) failed - %@", thePath, underlying);
           goto failure;
 	}
     }
@@ -2361,7 +2435,11 @@ failure:
     {
       /* Something went wrong; we weren't
        * even able to open the file. */
-      NSWarnMLog(@"Open (%s) failed - %@", thePath, [NSError _last]);
+      if (nil == underlying)
+	{
+	  underlying = [NSError _last];
+	}
+      NSWarnMLog(@"Open (%s) failed - %@", thePath, underlying);
       goto failure;
     }
 
@@ -2372,7 +2450,8 @@ failure:
 
   if (c < (int)[self length])        /* We failed to write everything. */
     {
-      NSWarnMLog(@"Fwrite (%s) failed - %@", thePath, [NSError _last]);
+      underlying = [NSError _last];
+      NSWarnMLog(@"Fwrite (%s) failed - %@", thePath, underlying);
       fclose(theFile);
       goto failure;
     }
@@ -2384,7 +2463,8 @@ failure:
                                  * closing the file, but we got here,
                                  * so we need to deal with it. */
     {
-      NSWarnMLog(@"Fclose (%s) failed - %@", thePath, [NSError _last]);
+      underlying = [NSError _last];
+      NSWarnMLog(@"Fclose (%s) failed - %@", thePath, underlying);
       goto failure;
     }
 
@@ -2404,8 +2484,9 @@ failure:
       c = rename(thePath, theRealPath);
       if (c != 0)               /* Many things could go wrong, I guess. */
         {
+	  underlying = [NSError _last];
 	  NSWarnMLog(@"Rename ('%s' to '%s') failed - %@",
-	    thePath, theRealPath, [NSError _last]);
+	    thePath, theRealPath, underlying);
           goto failure;
         }
 
@@ -2457,6 +2538,7 @@ failure:
     {
       unlink(thePath);
     }
+  setWriteError(errorPtr, path, underlying);
   return NO;
 #endif
 }
