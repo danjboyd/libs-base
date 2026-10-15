@@ -802,9 +802,17 @@ enumerateRuns(NSAttributedString *str, BOOL byAttribute,
       else
 	{
 	  NSInteger	delta = (NSInteger)[str length] - (NSInteger)length;
+	  NSInteger	next = (NSInteger)NSMaxRange(r) + delta;
 
-	  start = NSMaxRange(r) + delta;
-	  end += delta;
+	  /* A change outside the run is not allowed, but must neither move
+	   * the enumeration back before the run nor past the end.
+	   */
+	  start = (next < (NSInteger)r.location) ? r.location : (NSUInteger)next;
+	  end = ((NSInteger)end + delta < 0) ? 0 : end + delta;
+	  if (end > [str length])
+	    {
+	      end = [str length];
+	    }
 	}
     }
 }
