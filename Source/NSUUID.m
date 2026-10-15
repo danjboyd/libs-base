@@ -276,9 +276,6 @@ static void string_from_uuid(const unsigned char *uuid, char *string)
 
 static int random_uuid(unsigned char *uuid)
 {
-  unsigned char timeByte;
-  unsigned char sequenceByte;
-
   /* Only supporting Version 4 UUIDs (see RFC4122, section 4.4),
    * consistent with Apple.  Other variants suffer from privacy
    * problems (and are more work...)
@@ -289,16 +286,12 @@ static int random_uuid(unsigned char *uuid)
       return -1;
     }
 
-  /* as required by the RFC, bits 48-51 should contain 0b0100 (4)
-   * and bits 64-65 should contain 0b01 (1)
+  /* As required by the RFC, the version (the high four bits of
+   * octet 6) is 0b0100 (4) and the variant (the high two bits of
+   * octet 8) is 0b10.
    */
-  timeByte = uuid[6];
-  timeByte = (4 << 8) + (timeByte & 0x0f);
-  uuid[7] = timeByte;
-
-  sequenceByte = uuid[8];
-  sequenceByte = (1 << 6) + (sequenceByte & 0x3f);
-  uuid[8] = sequenceByte;
+  uuid[6] = 0x40 | (uuid[6] & 0x0f);
+  uuid[8] = 0x80 | (uuid[8] & 0x3f);
 
   return 0;
 }
