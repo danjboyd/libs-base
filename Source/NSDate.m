@@ -122,7 +122,16 @@ static id _distantFuture = nil;
  * libobjc2, contrary to Apple's runtime which uses the most-significant
  * 4-bits.
  *
- * We'll thus use 8-bits for the exponent.
+ * We'll thus use 8-bits for the exponent.  The compressed exponent is
+ * then in range [-128, 127], the biased exponent in range [879, 1134],
+ * and the magnitudes represented run from 2^-144 (about 4.5e-44) to just
+ * under 2^112 (about 5.2e33).
+ *
+ * Other intervals, among them zero (the reference date itself) and
+ * infinities, would come back changed: zero has a biased exponent of 0,
+ * which truncates to 17 and decompresses to 2.0.  Dates with those
+ * intervals are GSHeapDate instances, ordinary objects which hold the
+ * interval unchanged.
  */
 
 #if USE_SMALL_DATE
@@ -199,6 +208,29 @@ static __attribute__((always_inline)) NSTimeInterval
 
   return d.val;
 }
+
+/* Answers whether compressTimeInterval() keeps the interval exactly,
+ * that is whether its exponent survives truncation to eight signed bits.
+ */
+static __attribute__((always_inline)) BOOL
+  canCompressTimeInterval(NSTimeInterval interval)
+{
+  union DoubleBits db;
+  intptr_t exponent;
+
+  db.val = interval;
+  exponent = (intptr_t)db.exponent - EXPONENT_BIAS;
+  return (exponent >= -128 && exponent <= 127) ? YES : NO;
+}
+
+/* A date whose interval cannot be compressed into a small object.
+ * It inherits everything but its storage from NSDate.
+ */
+@interface GSHeapDate : NSDate
+{
+  NSTimeInterval _seconds_since_ref;
+}
+@end
 
 static __attribute__((always_inline)) BOOL isSmallDate(id obj) {
   // Do a fast check if the object is also a small date.
@@ -356,6 +388,11 @@ static BOOL useSmallDate;
     }
   return self;
 #else
+  if (NO == canCompressTimeInterval(secs))
+    {
+      return (id)[[GSHeapDate alloc]
+        initWithTimeIntervalSinceReferenceDate: secs];
+    }
   return CREATE_SMALL_DATE(secs);
 #endif
 }
@@ -382,6 +419,11 @@ static BOOL useSmallDate;
     }
   return self;
 #else
+  if (NO == canCompressTimeInterval(secondsSinceRef))
+    {
+      return (id)[[GSHeapDate alloc]
+        initWithTimeIntervalSinceReferenceDate: secondsSinceRef];
+    }
   return CREATE_SMALL_DATE(secondsSinceRef);
 #endif
 }
@@ -582,6 +624,26 @@ static BOOL useSmallDate;
 }
 
 @end
+
+#if USE_SMALL_DATE
+@implementation GSHeapDate
+
+- (id) initWithTimeIntervalSinceReferenceDate: (NSTimeInterval)secs
+{
+  if (nil != (self = [super initWithTimeIntervalSinceReferenceDate: secs]))
+    {
+      _seconds_since_ref = secs;
+    }
+  return self;
+}
+
+- (NSTimeInterval) timeIntervalSinceReferenceDate
+{
+  return _seconds_since_ref;
+}
+
+@end
+#endif // USE_SMALL_DATE
 
 #if USE_SMALL_DATE == 0
 /*
