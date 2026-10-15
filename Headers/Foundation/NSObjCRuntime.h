@@ -118,6 +118,21 @@ extern "C" {
 
 
 /*
+ * The constants of an NS_OPTIONS type are flags to be combined, and the
+ * type is open to values not named by them.  Clang records this with the
+ * flag_enum and enum_extensibility attributes, as Cocoa does, so that
+ * Swift imports the type as an OptionSet rather than as an enum.
+ */
+#ifndef __has_attribute
+#  define __has_attribute(x) 0
+#endif
+#if __has_attribute(flag_enum) && __has_attribute(enum_extensibility)
+#  define _GS_OPTIONS_ATTRIBUTES __attribute__((flag_enum,enum_extensibility(open)))
+#else
+#  define _GS_OPTIONS_ATTRIBUTES
+#endif
+
+/*
  * We can have strongly typed enums in C++11 mode or when the objc_fixed_enum
  * feature is availble.
  */
@@ -127,7 +142,8 @@ extern "C" {
 #  if __cplusplus
 #    define NS_OPTIONS(ty,name) ty name; enum : ty
 #  else
-#    define NS_OPTIONS(ty,name) NS_ENUM(ty,name)
+#    define NS_OPTIONS(ty,name) \
+       enum _GS_OPTIONS_ATTRIBUTES name : ty name; enum name : ty
 #  endif
 #else // this provides less information, but works with older compilers
 #  define _GS_NAMED_ENUM(ty, name) ty name; enum
