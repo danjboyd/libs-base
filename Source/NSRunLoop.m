@@ -1001,14 +1001,27 @@ static GSMainQueueDrainer 	*drainer = nil;
 	       */
 	      drainer = [GSMainQueueDrainer new];
 	    }
-          [current addEvent: [GSMainQueueDrainer mainQueueFileDescriptor]
+          /* Drain the main queue in the common modes, as Cocoa does, so
+           * work queued on it is done while a modal panel runs or events
+           * are tracked as well as in the default mode.
+           */
+          {
+            NSEnumerator	*e = [commonModes() objectEnumerator];
+            NSString		*mode;
+
+            while ((mode = [e nextObject]) != nil)
+              {
+                [current addEvent:
+                  [GSMainQueueDrainer mainQueueFileDescriptor]
 #ifdef _WIN32
-                       type: ET_HANDLE
+                             type: ET_HANDLE
 #else
-                       type: ET_RDESC
+                             type: ET_RDESC
 #endif
-                    watcher: drainer
-                    forMode: NSDefaultRunLoopMode];
+                          watcher: drainer
+                          forMode: mode];
+              }
+          }
 
           #endif
           [arp drain];
