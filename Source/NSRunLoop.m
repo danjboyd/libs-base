@@ -68,6 +68,22 @@ NSRunLoopMode const NSRunLoopCommonModes = @"NSRunLoopCommonModes";
 
 static NSDate	*theFuture = nil;
 
+/* The modes NSRunLoopCommonModes stands for.  The last two are defined
+ * in AppKit, so their names are given here.
+ */
+static NSArray *
+commonModes(void)
+{
+  static NSArray	*modes = nil;
+
+  if (nil == modes)
+    {
+      modes = [[NSArray alloc] initWithObjects: NSDefaultRunLoopMode,
+        @"NSModalPanelRunLoopMode", @"NSEventTrackingRunLoopMode", nil];
+    }
+  return modes;
+}
+
 
 
 /*
@@ -138,6 +154,49 @@ static NSDate	*theFuture = nil;
 @end
 
 
+
+/*
+ *	The GSRunLoopBlockPerformer class holds a block set up with
+ *	-performInModes:block:, which a GSRunLoopPerformer calls by sending
+ *	it -fire.
+ */
+@interface GSRunLoopBlockPerformer: NSObject
+{
+  GSRunLoopBlock	block;
+}
+- (void) fire;
+- (id) initWithBlock: (GSRunLoopBlock)aBlock;
+@end
+
+@implementation GSRunLoopBlockPerformer
+
+- (void) dealloc
+{
+  if (block != NULL)
+    {
+      Block_release(block);
+    }
+  [super dealloc];
+}
+
+- (void) fire
+{
+  CALL_BLOCK_NO_ARGS(block);
+}
+
+- (id) initWithBlock: (GSRunLoopBlock)aBlock
+{
+  self = [super init];
+  if (self)
+    {
+      block = (GSRunLoopBlock)Block_copy(aBlock);
+    }
+  return self;
+}
+
+@end
+
+
 
 @interface NSRunLoop (TimedPerformers)
 - (NSMutableArray*) _timedPerformers;
@@ -1507,6 +1566,54 @@ updateTimer(NSTimer *t, NSDate *d, NSTimeInterval now)
           mayDoMore = NO;
         }
     }
+}
+
+- (void) performBlock: (GSRunLoopBlock)block
+{
+  [self performInModes: [NSArray arrayWithObject: NSRunLoopCommonModes]
+                 block: block];
+}
+
+- (void) performInModes: (NSArray*)modes
+                  block: (GSRunLoopBlock)block
+{
+  GSRunLoopBlockPerformer	*performer;
+  NSMutableArray		*expanded;
+  NSEnumerator			*e;
+  NSString			*mode;
+
+  if (NULL == block || [modes count] == 0)
+    {
+      return;
+    }
+  expanded = [NSMutableArray arrayWithCapacity: [modes count] + 2];
+  e = [modes objectEnumerator];
+  while ((mode = [e nextObject]) != nil)
+    {
+      if ([mode isEqual: NSRunLoopCommonModes])
+        {
+          NSEnumerator	*c = [commonModes() objectEnumerator];
+
+          while ((mode = [c nextObject]) != nil)
+            {
+              if (NO == [expanded containsObject: mode])
+                {
+                  [expanded addObject: mode];
+                }
+            }
+        }
+      else if (NO == [expanded containsObject: mode])
+        {
+          [expanded addObject: mode];
+        }
+    }
+  performer = [[GSRunLoopBlockPerformer alloc] initWithBlock: block];
+  [self performSelector: @selector(fire)
+                 target: performer
+               argument: nil
+                  order: 0
+                  modes: expanded];
+  RELEASE(performer);
 }
 
 @end

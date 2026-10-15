@@ -26,6 +26,7 @@
 #import	<GNUstepBase/GSVersionMacros.h>
 
 #import	<Foundation/NSMapTable.h>
+#import	<GNUstepBase/GSBlocks.h>
 
 #if	defined(__cplusplus)
 extern "C" {
@@ -42,6 +43,8 @@ typedef NSString* NSRunLoopMode;
  */
 GS_EXPORT NSRunLoopMode const NSDefaultRunLoopMode;
 GS_EXPORT NSRunLoopMode const NSRunLoopCommonModes;
+
+DEFINE_BLOCK_TYPE_NO_ARGS(GSRunLoopBlock, void);
 
 GS_EXPORT_CLASS
 @interface NSRunLoop : NSObject
@@ -95,6 +98,30 @@ GS_EXPORT_CLASS
       beforeDate: (NSDate*)date;
 
 - (void) runUntilDate: (NSDate*)date;
+
+#if OS_API_VERSION(MAC_OS_X_VERSION_10_12,GS_API_LATEST)
+/**
+ * Calls -performInModes:block: with NSRunLoopCommonModes, so block is
+ * called before the next iteration of the loop in the default mode, or
+ * while the loop runs a modal panel or tracks events.
+ */
+- (void) performBlock: (GSRunLoopBlock)block;
+
+/**
+ * Sets up block to be called once, before the next iteration of the
+ * loop in any of modes.  The block is copied, and released once it has
+ * been called.  NSRunLoopCommonModes in modes stands for
+ * NSDefaultRunLoopMode, NSModalPanelRunLoopMode and
+ * NSEventTrackingRunLoopMode.<br />
+ * As with -performSelector:target:argument:order:modes: the block is
+ * queued in the receiver directly, so this should be called from the
+ * thread the receiver belongs to.  The receiver is not woken up, so the
+ * block is called the next time the loop runs in one of the modes.<br />
+ * If modes is empty, this method has no effect.
+ */
+- (void) performInModes: (NSArray*)modes
+                  block: (GSRunLoopBlock)block;
+#endif
 
 @end
 
