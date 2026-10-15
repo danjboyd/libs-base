@@ -58,6 +58,44 @@
 #define alloca(x) _alloca(x)
 #endif
 
+#if defined(USE_LIBFFI)
+#import "cifframe.h"
+
+/* A setter whose value is a structure other than the common geometry
+ * structures is replaced by a libffi closure built from the setter's type
+ * encoding: the calling convention passes structures in ways a C variadic
+ * function cannot recover (on x86-64, in SSE registers or in memory).  The
+ * closures are shared between setters with the same type encoding and kept
+ * for the life of the process, as the methods using them may never be
+ * removed.
+ */
+static IMP
+_NSKVOStructSetterClosure(const char *types,
+  void (*callback)(ffi_cif *, void *, void **, void *))
+{
+  static gs_mutex_t		closuresLock = GS_MUTEX_INIT_STATIC;
+  static NSMutableDictionary	*closures = nil;
+  NSString			*key;
+  GSCodeBuffer			*buffer;
+
+  key = [NSString stringWithUTF8String: types];
+  GS_MUTEX_LOCK(closuresLock);
+  if (nil == closures)
+    {
+      closures = [NSMutableDictionary new];
+    }
+  buffer = [closures objectForKey: key];
+  if (nil == buffer)
+    {
+      buffer = cifframe_closure(
+	[NSMethodSignature signatureWithObjCTypes: types], callback);
+      [closures setObject: buffer forKey: key];
+    }
+  GS_MUTEX_UNLOCK(closuresLock);
+  return (IMP)[buffer executable];
+}
+#endif
+
 #if defined(__OBJC2__) && !defined(NSKVO_FORCE_PORTABLE)
 /* ==================================================================== *
  *  libobjc2 backend: per-object method addition (object_addMethod_np).  *
@@ -195,6 +233,14 @@ _associateSelectorWithKey(id object, SEL selector, NSString *key)
     sel_getName(selector), key);
 }
 
+#if !defined(USE_LIBFFI)
+/* Without libffi, a setter whose value is a structure other than the common
+ * geometry structures re-sends the words of the value as integer arguments.
+ * This is only correct where the calling convention passes the structure in
+ * integer registers or on the stack in the same way for variadic and
+ * non-variadic calls; on x86-64 a structure of floating point members is
+ * passed in SSE registers and arrives as garbage.
+ */
 static void
 notifyingVariadicSetImpl(id self, SEL _cmd, ...)
 {
@@ -257,6 +303,7 @@ notifyingVariadicSetImpl(id self, SEL _cmd, ...)
 
   free(raw);
 }
+#endif
 
 typedef void (*insertObjectAtIndexIMP)(id, SEL, id, NSUInteger);
 typedef void (*removeObjectAtIndexIMP)(id, SEL, NSUInteger);
@@ -496,6 +543,42 @@ GENERATE_NOTIFYING_SET_IMPL(notifyingSetImplUnsignedLongLong,
 GENERATE_NOTIFYING_SET_IMPL(notifyingSetImplObject, id);
 GENERATE_NOTIFYING_SET_IMPL(notifyingSetImplPointer, void *);
 
+/* Structures must be received with their own type, as the calling convention
+ * may pass them in floating point registers.  NSSize has the layout of
+ * NSPoint, so the NSPoint setter serves for it and for any structure of two
+ * CGFloat values.
+ */
+GENERATE_NOTIFYING_SET_IMPL(notifyingSetImplPoint, NSPoint);
+GENERATE_NOTIFYING_SET_IMPL(notifyingSetImplRange, NSRange);
+GENERATE_NOTIFYING_SET_IMPL(notifyingSetImplRect, NSRect);
+
+#if defined(USE_LIBFFI)
+/* The libffi closure for a setter of any other structure: calls the
+ * original setter with the arguments as received.
+ */
+static void
+notifyingStructSetCallback(ffi_cif *cif, void *retp, void **args, void *user)
+{
+  id			self = *(id *)args[0];
+  SEL			_cmd = *(SEL *)args[1];
+  struct objc_super	super = {self, ABI_SUPER(self)};
+  IMP			imp = objc_msg_lookup_super(&super, _cmd);
+
+  if (nil == [self observationInfo])
+    {
+      ffi_call(cif, FFI_FN(imp), retp, args);
+      return;
+    }
+  {
+    NSString *key = _keyForSelector(self, _cmd);
+
+    [self willChangeValueForKey: key];
+    ffi_call(cif, FFI_FN(imp), retp, args);
+    [self didChangeValueForKey: key];
+  }
+}
+#endif
+
 #define KVO_SET_IMPL_CASE(type, name, capitalizedName, encodingChar)           \
     case encodingChar: {                                                       \
       newImpl = (IMP) (&notifyingSetImpl##capitalizedName);                    \
@@ -555,16 +638,37 @@ _NSKVOEnsureSimpleKeyWillNotify(id object, NSString *key, const char *rawKey)
       OBJC_APPLY_ALL_TYPE_ENCODINGS(KVO_SET_IMPL_CASE);
     case '{':
       case '[': {
-        size_t valueSize = objc_sizeof_type(valueType);
-        if (valueSize > 6 * sizeof(uintptr_t))
+        if (GSSelectorTypesMatch(@encode(NSPoint), valueType))
           {
-            [NSException raise: NSInvalidArgumentException
-                        format: @"Class %s key %@ has a value size of %u bytes"
-	      @", and cannot currently be KVO compliant.",
-	      class_getName(object_getClass(object)), key,
-	      (unsigned int) (valueSize)];
+            newImpl = (IMP) (&notifyingSetImplPoint);
           }
-        newImpl = (IMP) (&notifyingVariadicSetImpl);
+        else if (GSSelectorTypesMatch(@encode(NSRange), valueType))
+          {
+            newImpl = (IMP) (&notifyingSetImplRange);
+          }
+        else if (GSSelectorTypesMatch(@encode(NSRect), valueType))
+          {
+            newImpl = (IMP) (&notifyingSetImplRect);
+          }
+        else
+          {
+#if defined(USE_LIBFFI)
+            newImpl = _NSKVOStructSetterClosure(types,
+              notifyingStructSetCallback);
+#else
+            size_t valueSize = objc_sizeof_type(valueType);
+
+            if (valueSize > 6 * sizeof(uintptr_t))
+              {
+                [NSException raise: NSInvalidArgumentException
+                            format: @"Class %s key %@ has a value size of %u"
+                  @" bytes, and cannot currently be KVO compliant.",
+                  class_getName(object_getClass(object)), key,
+                  (unsigned int) (valueSize)];
+              }
+            newImpl = (IMP) (&notifyingVariadicSetImpl);
+#endif
+          }
         break;
       }
     default:
@@ -864,11 +968,41 @@ GENERATE_PORTABLE_SET_IMPL(portableSetPointer, void *);
       break;                                                                   \
     }
 
-/* Setters whose value is a structure or array are passed on the stack.  We
- * cannot know the exact prototype, so flatten the words the caller pushed and
- * re-emit them to the original implementation.  This assumes variadic and
- * non-variadic calls pass such arguments the same way, which holds on the
- * platforms we support; the value size is capped (see below) accordingly. */
+/* Structures must be received with their own type, as the calling convention
+ * may pass them in floating point registers.  NSSize has the layout of
+ * NSPoint, so the NSPoint setter serves for it and for any structure of two
+ * CGFloat values.
+ */
+GENERATE_PORTABLE_SET_IMPL(portableSetPoint, NSPoint);
+GENERATE_PORTABLE_SET_IMPL(portableSetRange, NSRange);
+GENERATE_PORTABLE_SET_IMPL(portableSetRect, NSRect);
+
+#if defined(USE_LIBFFI)
+/* The libffi closure for a setter of any other structure: calls the
+ * original setter with the arguments as received.
+ */
+static void
+portableStructSetCallback(ffi_cif *cif, void *retp, void **args, void *user)
+{
+  id		self = *(id *)args[0];
+  SEL		_cmd = *(SEL *)args[1];
+  NSString	*key;
+  IMP		orig;
+
+  _NSKVOPortableLookup(self, _cmd, &key, &orig);
+  [self willChangeValueForKey: key];
+  ffi_call(cif, FFI_FN(orig), retp, args);
+  [self didChangeValueForKey: key];
+}
+#else
+/* Without libffi, a setter whose value is a structure other than the common
+ * geometry structures re-sends the words of the value as integer arguments.
+ * This is only correct where the calling convention passes the structure in
+ * integer registers or on the stack in the same way for variadic and
+ * non-variadic calls; on x86-64 a structure of floating point members is
+ * passed in SSE registers and arrives as garbage.  The value size is capped
+ * (see below) accordingly.
+ */
 static void
 portableVariadicSetImpl(id self, SEL _cmd, ...)
 {
@@ -927,6 +1061,7 @@ portableVariadicSetImpl(id self, SEL _cmd, ...)
 
   free(raw);
 }
+#endif
 
 static SEL
 KVCSetterForPropertyName(NSObject *self, const char *key)
@@ -1160,20 +1295,38 @@ _NSKVOEnsureSimpleKeyWillNotify(id object, _NSKVOSwizzledClass *info,
       OBJC_APPLY_ALL_TYPE_ENCODINGS(KVO_SET_IMPL_CASE);
       case '{':
       case '[':
-	{
-	  size_t valueSize = objc_sizeof_type(valueType);
+	if (GSSelectorTypesMatch(@encode(NSPoint), valueType))
+	  {
+	    newImpl = (IMP) (&portableSetPoint);
+	  }
+	else if (GSSelectorTypesMatch(@encode(NSRange), valueType))
+	  {
+	    newImpl = (IMP) (&portableSetRange);
+	  }
+	else if (GSSelectorTypesMatch(@encode(NSRect), valueType))
+	  {
+	    newImpl = (IMP) (&portableSetRect);
+	  }
+	else
+	  {
+#if defined(USE_LIBFFI)
+	    newImpl = _NSKVOStructSetterClosure(types,
+	      portableStructSetCallback);
+#else
+	    size_t valueSize = objc_sizeof_type(valueType);
 
-	  if (valueSize > 6 * sizeof(uintptr_t))
-	    {
-	      [NSException raise: NSInvalidArgumentException
-			  format: @"Class %s key %@ has a value size of %u bytes"
-		@", and cannot currently be KVO compliant.",
-		class_getName(_NSKVOPublicClass(object)), key,
-		(unsigned int) valueSize];
-	    }
-	  newImpl = (IMP) (&portableVariadicSetImpl);
-	  break;
-	}
+	    if (valueSize > 6 * sizeof(uintptr_t))
+	      {
+		[NSException raise: NSInvalidArgumentException
+			    format: @"Class %s key %@ has a value size of %u"
+		  @" bytes, and cannot currently be KVO compliant.",
+		  class_getName(_NSKVOPublicClass(object)), key,
+		  (unsigned int) valueSize];
+	      }
+	    newImpl = (IMP) (&portableVariadicSetImpl);
+#endif
+	  }
+	break;
       default:
 	[NSException raise: NSInvalidArgumentException
 		    format: @"Class %s is not KVO compliant for key %@.",
