@@ -222,15 +222,26 @@ extern "C" {
  * constants are its members (NSAttributedString.Key.font for
  * NSFontAttributeName).  An extensible one can gain new constants.
  */
-#if __has_attribute(swift_wrapper)
-#  define NS_TYPED_ENUM __attribute__((swift_wrapper(enum)))
-#  define NS_TYPED_EXTENSIBLE_ENUM __attribute__((swift_wrapper(struct)))
-#else
-#  define NS_TYPED_ENUM
-#  define NS_TYPED_EXTENSIBLE_ENUM
+#ifndef NS_TYPED_ENUM
+#  if __has_attribute(swift_wrapper)
+#    define NS_TYPED_ENUM __attribute__((swift_wrapper(enum)))
+#  else
+#    define NS_TYPED_ENUM
+#  endif
 #endif
-#define NS_STRING_ENUM NS_TYPED_ENUM
-#define NS_EXTENSIBLE_STRING_ENUM NS_TYPED_EXTENSIBLE_ENUM
+#ifndef NS_TYPED_EXTENSIBLE_ENUM
+#  if __has_attribute(swift_wrapper)
+#    define NS_TYPED_EXTENSIBLE_ENUM __attribute__((swift_wrapper(struct)))
+#  else
+#    define NS_TYPED_EXTENSIBLE_ENUM
+#  endif
+#endif
+#ifndef NS_STRING_ENUM
+#  define NS_STRING_ENUM NS_TYPED_ENUM
+#endif
+#ifndef NS_EXTENSIBLE_STRING_ENUM
+#  define NS_EXTENSIBLE_STRING_ENUM NS_TYPED_EXTENSIBLE_ENUM
+#endif
 
 /*
  * Backwards compatibility macro for instance type.
