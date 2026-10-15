@@ -94,7 +94,8 @@ void GSEnumerationMutation(id obj)
 }
 
 #if	GS_HAVE_FAST_ENUMERATION
-  /* If possible we will ask the runtime to call our handler.
+  /* If possible we will ask the runtime to call our handler (in +load).
+   * That works whatever the order in which libraries are loaded.
    */
 # if	GS_HAVE_FAST_ENUMERATION_SETTER
     extern void objc_setEnumerationMutationHandler(void (*handler)(id));
@@ -107,7 +108,11 @@ void GSEnumerationMutation(id obj)
        * in the middle of fast enumeration.  We need to have this defined
        * and linked into any code that uses fast enumeration.
        * This symbol is exported to take precedence over the weak symbol
-       * provided by the runtime library.
+       * provided by the runtime library.  With ELF shared libraries that
+       * only happens when the dynamic linker finds this library before the
+       * runtime: the dynamic linker does not prefer a strong symbol to a
+       * weak one, so a program which loads the runtime first (a Swift
+       * program, say) gets the runtime's function, which aborts.
        */
       void objc_enumerationMutation(id obj)
       {
@@ -1020,18 +1025,18 @@ static id gs_weak_load(id obj)
   GSWeakInit();
 #endif
   objc_create_block_classes_as_subclasses_of(self);
+#if	GS_HAVE_FAST_ENUMERATION_SETTER
+  /* Tell runtime to pass enumeration mutation detection handling to us,
+   * before any code in other libraries can enumerate a collection.
+   */
+  objc_setEnumerationMutationHandler(GSEnumerationMutation);
+#endif
 }
 
 + (void) initialize
 {
   if (self == [NSObject class])
     {
-#if	GS_HAVE_FAST_ENUMERATION_SETTER
-      /* Tell runtime to pass enumeration mutation detection handling to us.
-       */
-      objc_setEnumerationMutationHandler(GSEnumerationMutation);
-#endif
-
 #ifdef _WIN32
       /* Start of sockets so we can get host name and other info */
       WORD wVersionRequested = MAKEWORD(2, 2);
