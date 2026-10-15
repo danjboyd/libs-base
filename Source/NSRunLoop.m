@@ -1001,7 +1001,11 @@ static GSMainQueueDrainer 	*drainer = nil;
 	    }
           /* Drain the main queue in the common modes, as Cocoa does, so
            * work queued on it is done while a modal panel runs or events
-           * are tracked as well as in the default mode.
+           * are tracked as well as in the default mode.  A modal loop
+           * run from inside a main queue job does not drain it: the
+           * main queue does not run jobs inside one of its own, so work
+           * queued then waits until the job (and the modal loop) ends,
+           * as on Darwin.
            */
           {
             NSEnumerator	*e = [theCommonModes objectEnumerator];

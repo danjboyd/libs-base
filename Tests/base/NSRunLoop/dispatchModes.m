@@ -7,7 +7,9 @@
 
 /* With libdispatch run loop integration, the main queue is drained in
    the common modes: work queued on it runs while the main run loop runs
-   a modal panel or tracks events, not only in the default mode. */
+   a modal panel or tracks events, not only in the default mode.  (Not
+   while running a mode from inside a main queue job: libdispatch does not
+   run main queue jobs inside one, as on Darwin.) */
 
 #if GS_USE_LIBDISPATCH_RUNLOOP && __has_feature(blocks)
 #  define DISPATCH_RL_INTEGRATION 1
