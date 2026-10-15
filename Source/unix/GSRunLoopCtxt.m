@@ -396,11 +396,10 @@ static void setPollfd(int fd, int event, GSRunLoopCtxtUnix *ctxt)
 
   /*
    * Trigger any watchers which are set up to for every runloop wait.
-   * A watcher that triggers counts as input handled, so the run loop
+   * A watcher sent its event counts as input handled, so the run loop
    * returns rather than waiting on for other input.
    */
   count =  GSIArrayCount(_trigger);
-  triggered = (count > 0);
   while (count-- > 0)
     {
       GSRunLoopWatcher	*watcher;
@@ -422,6 +421,7 @@ static void setPollfd(int fd, int event, GSRunLoopCtxtUnix *ctxt)
 	   * The watcher is still valid - so call its
 	   * receivers event handling method.
 	   */
+	  triggered = YES;
 	  [watcher->receiver receivedEvent: watcher->data
 				      type: watcher->type
 				     extra: watcher->data
@@ -818,11 +818,10 @@ static void setPollfd(int fd, int event, GSRunLoopCtxtUnix *ctxt)
 
   /*
    * Trigger any watchers which are set up to for every runloop wait.
-   * A watcher that triggers counts as input handled, so the run loop
+   * A watcher sent its event counts as input handled, so the run loop
    * returns rather than waiting on for other input.
    */
   count = GSIArrayCount(_trigger);
-  triggered = (count > 0);
   while (count-- > 0)
     {
       GSRunLoopWatcher	*watcher;
@@ -844,6 +843,7 @@ static void setPollfd(int fd, int event, GSRunLoopCtxtUnix *ctxt)
 	   * The watcher is still valid - so call its
 	   * receivers event handling method.
 	   */
+	  triggered = YES;
 	  [watcher->receiver receivedEvent: watcher->data
 				      type: watcher->type
 				     extra: watcher->data

@@ -209,6 +209,7 @@
   int			wait_timeout;
   DWORD			wait_return;
   BOOL			immediate = NO;
+  BOOL			triggered = NO;
   BOOL			existingMessages = NO;
 
   // Set timeout how much time should wait
@@ -441,6 +442,7 @@
 	   * The watcher is still valid - so call its
 	   * receivers event handling method.
 	   */
+	  triggered = YES;
 	  [watcher->receiver receivedEvent: watcher->data
 				      type: watcher->type
 				     extra: watcher->data
@@ -460,7 +462,10 @@
 	{
 	  NSDebugMLLog(@"NSRunLoop", @"timeout without events");
 	  completed = YES;
-	  return NO;        
+	  /* A watcher sent its event counts as input handled, so the
+	   * run loop returns rather than waiting on for other input.
+	   */
+	  return triggered;
 	}
     }
   else if (WAIT_OBJECT_0 + num_handles == wait_return)

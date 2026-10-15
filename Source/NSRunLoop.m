@@ -1372,7 +1372,9 @@ updateTimer(NSTimer *t, NSDate *d, NSTimeInterval now)
  * If limit_date is nil or in the past, then don't wait;
  * just fire timers, poll inputs and return, otherwise block
  * (firing timers when they are due) until input is available
- * or until the earliest limit date has passed (whichever comes first).<br />
+ * or until the earliest limit date has passed (whichever comes first).
+ * A watcher triggered because its -runLoopShouldBlock: answered NO counts
+ * as input.<br />
  * If the supplied mode is nil, uses NSDefaultRunLoopMode.<br />
  * If there are no input sources or timers in the mode, returns immediately.
  */

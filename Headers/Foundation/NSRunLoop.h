@@ -198,8 +198,14 @@ typedef	enum {
 @interface NSObject (RunLoopEvents)
 /** Called by the run loop to find out whether it needs to block to wait
  * for events for this watcher.  The shouldTrigger flag is used to inform
- * the run loop if tit should immediately trigger a received event for the
- * watcher.
+ * the run loop if it should immediately trigger a received event for the
+ * watcher.<br />
+ * A watcher that is triggered this way counts as input handled, as a
+ * ready descriptor does, so -acceptInputForMode:beforeDate: and
+ * -runMode:beforeDate: return after sending it its event rather than
+ * waiting on for other input.  While a watcher keeps triggering, the loop
+ * does not wait, so notifications queued with NSPostWhenIdle are not
+ * posted.
  */
 - (BOOL) runLoopShouldBlock: (BOOL*)shouldTrigger;
 @end
