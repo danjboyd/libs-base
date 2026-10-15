@@ -67,6 +67,27 @@ static Class	calendarClass = nil;
 
 static gs_mutex_t       classLock = GS_MUTEX_INIT_STATIC;
 
+/* The hash of every date, whatever its class or representation, so that
+ * equal dates have equal hashes.  It is the whole number of seconds when
+ * that fits in an integer, and the bit pattern of the interval otherwise
+ * (converting such a value to an integer would be undefined).
+ */
+static inline NSUInteger
+hashForInterval(NSTimeInterval interval)
+{
+  if (interval > -9.0e18 && interval < 9.0e18)
+    {
+      return (NSUInteger)(int64_t)interval;
+    }
+  else
+    {
+      union { NSTimeInterval d; uint64_t u; } bits;
+
+      bits.d = interval;
+      return (NSUInteger)(bits.u ^ (bits.u >> 32));
+    }
+}
+
 // Singleton instances for distantPast and distantFuture
 static id _distantPast = nil;
 static id _distantFuture = nil;
@@ -432,11 +453,7 @@ static BOOL useSmallDate;
 
 - (NSUInteger) hash
 {
-  #if USE_SMALL_DATE
-  return (NSUInteger)self;
-  #else
-  return (NSUInteger)GET_INTERVAL(self);
-  #endif
+  return hashForInterval(GET_INTERVAL(self));
 }
 
 - (NSComparisonResult) compare: (NSDate*)otherDate
@@ -630,6 +647,15 @@ static BOOL useSmallDate;
 
 - (id) initWithTimeIntervalSinceReferenceDate: (NSTimeInterval)secs
 {
+  /* Methods such as -dateByAddingTimeInterval: create dates of the
+   * receiver's class.  Answer a small date for an interval that fits one,
+   * so that a date has one representation whatever made it.
+   */
+  if (canCompressTimeInterval(secs))
+    {
+      DESTROY(self);
+      return CREATE_SMALL_DATE(secs);
+    }
   if (nil != (self = [super initWithTimeIntervalSinceReferenceDate: secs]))
     {
       _seconds_since_ref = secs;
@@ -1757,12 +1783,15 @@ otherTime(NSDate* other)
     {
       [coder encodeDouble: interval forKey: @"NS.time"];
     }
-  [coder encodeValueOfObjCType: @encode(NSTimeInterval) at: &interval];
+  else
+    {
+      [coder encodeValueOfObjCType: @encode(NSTimeInterval) at: &interval];
+    }
 }
 
 - (NSUInteger) hash
 {
-  return (NSUInteger)[self timeIntervalSinceReferenceDate];
+  return hashForInterval([self timeIntervalSinceReferenceDate]);
 }
 
 - (instancetype) initWithCoder: (NSCoder*)coder

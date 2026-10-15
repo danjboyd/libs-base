@@ -2,7 +2,9 @@
 #import <Foundation/NSAutoreleasePool.h>
 #import <Foundation/NSArchiver.h>
 #import <Foundation/NSDate.h>
+#import <Foundation/NSDictionary.h>
 #import <Foundation/NSKeyedArchiver.h>
+#import <Foundation/NSSet.h>
 #import <Foundation/NSString.h>
 #include <float.h>
 #include <math.h>
@@ -76,6 +78,48 @@ int main()
       d3 = [d1 dateByAddingTimeInterval: 0.0];
       PASS([d3 isEqual: d1], "adding zero to a date at %g gives an equal date", t)
     }
+
+  /* Dates made from dates of another representation must be equal to,
+   * and hash like, dates made directly.
+   */
+  {
+    NSDate	*zero = [NSDate dateWithTimeIntervalSinceReferenceDate: 0.0];
+    NSDate	*hundred = [NSDate dateWithTimeIntervalSinceReferenceDate: 100.0];
+    NSDate	*tiny = [NSDate dateWithTimeIntervalSinceReferenceDate: 1e-300];
+    NSDate	*derived = [zero dateByAddingTimeInterval: 100.0];
+    NSDate	*back = [hundred dateByAddingTimeInterval: -100.0];
+    NSDate	*fromTiny = [tiny dateByAddingTimeInterval: 100.0];
+    NSSet	*set;
+    NSDictionary	*dict;
+
+    PASS(same([derived timeIntervalSinceReferenceDate], 100.0)
+      && [derived isEqual: hundred] && [hundred isEqual: derived]
+      && [derived hash] == [hundred hash],
+      "the date at 0 plus 100 is equal to and hashes like the date at 100")
+    PASS(same([fromTiny timeIntervalSinceReferenceDate], 100.0)
+      && [fromTiny isEqual: hundred] && [fromTiny hash] == [hundred hash],
+      "the date at 1e-300 plus 100 is equal to and hashes like"
+      " the date at 100")
+    PASS(same([back timeIntervalSinceReferenceDate], 0.0)
+      && [back isEqual: zero] && [back hash] == [zero hash],
+      "the date at 100 minus 100 is equal to and hashes like the date at 0")
+    PASS([[[derived class] dateWithTimeIntervalSinceReferenceDate: 5.0]
+      isEqual: [NSDate dateWithTimeIntervalSinceReferenceDate: 5.0]]
+      && [[[derived class] dateWithTimeIntervalSinceReferenceDate: 5.0] hash]
+      == [[NSDate dateWithTimeIntervalSinceReferenceDate: 5.0] hash],
+      "a date made through the class of another date is equal and hashes alike")
+
+    set = [NSSet setWithObjects: hundred, zero, nil];
+    PASS([set member: derived] != nil && [set member: back] != nil
+      && [set containsObject: fromTiny],
+      "NSSet finds dates however they were made")
+    dict = [NSDictionary dictionaryWithObjectsAndKeys:
+      @"hundred", derived, @"zero", back, nil];
+    PASS_EQUAL([dict objectForKey: hundred], @"hundred",
+      "NSDictionary finds the date at 100 under a derived key")
+    PASS_EQUAL([dict objectForKey: zero], @"zero",
+      "NSDictionary finds the date at 0 under a derived key")
+  }
 
   PASS([[NSDate dateWithTimeIntervalSinceReferenceDate: 0.0]
     timeIntervalSince1970] == 978307200.0,
