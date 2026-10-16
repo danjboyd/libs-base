@@ -38,7 +38,11 @@ extern "C" {
 @class NSSet;
 @class NSString;
 
-enum {
+/** The kinds of values an observer asks to receive with each change
+ * notification.  As in Cocoa, these are options to combine, which Swift
+ * imports as an OptionSet (.new, .old, .initial, .prior).
+ */
+typedef NS_OPTIONS(NSUInteger, NSKeyValueObservingOptions) {
   NSKeyValueObservingOptionNew = 1,
   NSKeyValueObservingOptionOld = 2
 #if OS_API_VERSION(MAC_OS_X_VERSION_10_5,GS_API_LATEST)
@@ -46,23 +50,25 @@ enum {
   NSKeyValueObservingOptionPrior = 8
 #endif
 };
-typedef NSUInteger NSKeyValueObservingOptions;
 
-enum {
+/** The kind of change a notification reports, as the value of the
+ * NSKeyValueChangeKindKey entry of the change dictionary.
+ */
+typedef NS_ENUM(NSUInteger, NSKeyValueChange) {
   NSKeyValueChangeSetting = 1,
   NSKeyValueChangeInsertion = 2,
   NSKeyValueChangeRemoval = 3,
   NSKeyValueChangeReplacement = 4
 };
-typedef NSUInteger NSKeyValueChange;
 
-enum {
+/** The kind of mutation of an unordered to-many relationship (a set).
+ */
+typedef NS_ENUM(NSUInteger, NSKeyValueSetMutationKind) {
   NSKeyValueUnionSetMutation = 1,
   NSKeyValueMinusSetMutation = 2,
   NSKeyValueIntersectSetMutation = 3,
   NSKeyValueSetSetMutation = 4
 };
-typedef NSUInteger NSKeyValueSetMutationKind;
 
 GS_EXPORT NSString *const NSKeyValueChangeIndexesKey;
 GS_EXPORT NSString *const NSKeyValueChangeKindKey;
