@@ -4330,6 +4330,10 @@ enum GSStringOption {
       return nil;
     }
 
+  /* The buffer has room for the terminating NUL that ICU writes, but
+   * the result is only the converted characters.
+   */
+  [destination setLength: destLength * sizeof(UChar)];
   return AUTORELEASE([[NSString alloc] initWithData: destination
 					   encoding: NSUTF16StringEncoding]);
   #else
