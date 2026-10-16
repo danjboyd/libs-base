@@ -1207,17 +1207,15 @@ yearForWeekOfYear: (NSInteger*)yearValuePointer
 {
   NSCalendar *result;
 
-  if (NSShouldRetainWithZone(self, zone))
-    {
-      return RETAIN(self);
-    }
-  else
-    {
-      result = [[[self class] allocWithZone: zone]
-        initWithCalendarIdentifier: my->identifier];
-      [result _setLocaleIdentifier: my->localeID];
-      [result setTimeZone: my->tz];
-    }
+  /* A calendar is mutable, so a copy is always a new calendar with the
+   * same settings.
+   */
+  result = [[[self class] allocWithZone: zone]
+    initWithCalendarIdentifier: my->identifier];
+  [result _setLocaleIdentifier: my->localeID];
+  [result setTimeZone: my->tz];
+  [result setFirstWeekday: my->firstWeekday];
+  [result setMinimumDaysInFirstWeek: my->minimumDaysInFirstWeek];
 
   return result;
 }
