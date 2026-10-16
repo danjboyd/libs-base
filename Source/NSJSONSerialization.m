@@ -36,6 +36,7 @@
 #import "Foundation/NSDictionary.h"
 #import "Foundation/NSEnumerator.h"
 #import "Foundation/NSError.h"
+#import "Foundation/FoundationErrors.h"
 #import "Foundation/NSJSONSerialization.h"
 #import "Foundation/NSNull.h"
 #import "Foundation/NSStream.h"
@@ -361,7 +362,7 @@ parseCollection(ParserState *state, id (*func)(ParserState*))
 	NSLocalizedFailureReasonErrorKey,
 	nil];
       state->error = [NSError errorWithDomain: NSCocoaErrorDomain
-					 code: 0
+					 code: NSPropertyListReadCorruptError
 				     userInfo: userInfo];
       RELEASE(userInfo);
       return nil;
@@ -387,7 +388,7 @@ parseError(ParserState *state)
       NSLocalizedFailureReasonErrorKey,
     nil];
   state->error = [NSError errorWithDomain: NSCocoaErrorDomain
-                                     code: 0
+                                     code: NSPropertyListReadCorruptError
                                  userInfo: userInfo];
   RELEASE(userInfo);
 }

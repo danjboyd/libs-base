@@ -34,6 +34,7 @@
 #import "Foundation/NSDictionary.h"
 #import "Foundation/NSEnumerator.h"
 #import "Foundation/NSError.h"
+#import "Foundation/FoundationErrors.h"
 #import "Foundation/NSException.h"
 #import "Foundation/NSHashTable.h"
 #import "Foundation/NSPropertyList.h"
@@ -2458,7 +2459,7 @@ OAppend(id obj, NSDictionary *loc, unsigned lev, unsigned step,
 static inline NSError*
 create_error(int code, NSString* desc)
 {
-  return [NSError errorWithDomain: @"NSPropertyListSerialization"
+  return [NSError errorWithDomain: NSCocoaErrorDomain
                   code: code 
                   userInfo: [NSDictionary 
                                 dictionaryWithObjectsAndKeys: desc,
@@ -2935,7 +2936,7 @@ checkPL(id aPropertyList, NSPropertyListFormat aFormat)
    */
   if ((errorStr != nil) && (error != NULL))
     {
-      *error = create_error(0, errorStr);
+      *error = create_error(NSPropertyListReadCorruptError, errorStr);
     }
   if (aFormat != 0)
     {
