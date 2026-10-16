@@ -536,12 +536,25 @@ header_callback(char *ptr, size_t size, size_t nitems, void *userdata)
       session = [task _session];
       delegate = [task delegate];
       handle = [task _easyHandle];
-      numberOfRedirects = [task _numberOfRedirects] + 1;
 
-      [task _setNumberOfRedirects: numberOfRedirects];
       [task _setHeaderCallbackCount: 0];
 
       curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &statusCode);
+
+      /* An informational (1xx) response such as 100 Continue is followed
+       * by the final response on the same transfer.  As in Cocoa, it is
+       * not reported; forget its headers and wait for the final one.
+       * 101 Switching Protocols ends the HTTP exchange, so it is final.
+       */
+      if (statusCode >= 100 && statusCode < 200 && statusCode != 101)
+        {
+          [headerFields removeAllObjects];
+          return size * nitems;
+        }
+
+      numberOfRedirects = [task _numberOfRedirects] + 1;
+      [task _setNumberOfRedirects: numberOfRedirects];
+
       curl_easy_getinfo(handle, CURLINFO_EFFECTIVE_URL, &effURL);
 
       if (nil == (version = [taskData objectForKey: @"version"]))
