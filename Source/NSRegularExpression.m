@@ -897,43 +897,6 @@ rangeCallback(void *context, NSTextCheckingResult *match,
   utext_close(&replacement);
   return AUTORELEASE(ret);
 }
-
-- (NSString*) replacementStringForResult: (NSTextCheckingResult*)result
-                                inString: (NSString*)string
-                                  offset: (NSInteger)offset
-                                template: (NSString*)template
-{
-  UErrorCode	s = 0;
-  UText		txt = UTEXT_INITIALIZER;
-  UText		replacement = UTEXT_INITIALIZER;
-  UText		*output = NULL;
-  GSUTextString	*ret = [GSUTextString new];
-  NSRange	range = [result range];
-  URegularExpression *r = setupRegex(regex,
-				     [string substringWithRange: range],
-				     &txt,
-				     0,
-				     NSMakeRange(0, range.length),
-				     0);
-
-  UTextInitWithNSString(&replacement, template);
-
-  output = uregex_replaceFirstUText(r, &replacement, NULL, &s);
-  if (0 != s)
-    {
-      uregex_close(r);
-      utext_close(&replacement);
-      utext_close(&txt);
-      DESTROY(ret);
-      return nil;
-    }
-  utext_clone(&ret->txt, output, TRUE, TRUE, &s);
-  utext_close(output);
-  uregex_close(r);
-  utext_close(&txt);
-  utext_close(&replacement);
-  return AUTORELEASE(ret);
-}
 #else
 - (NSUInteger) replaceMatchesInString: (NSMutableString*)string
                               options: (NSMatchingOptions)opts
@@ -1037,56 +1000,97 @@ rangeCallback(void *context, NSTextCheckingResult *match,
   GS_ENDITEMBUF()
   return result;
 }
+#endif
 
+/* Appends the characters from start up to end to output.
+ */
+static inline void
+appendCharacters(NSMutableString *output, const unichar *chars,
+  NSUInteger start, NSUInteger end)
+{
+  if (end > start)
+    {
+      NSString	*s;
+
+      s = [[NSString alloc] initWithCharacters: chars + start
+					length: end - start];
+      [output appendString: s];
+      RELEASE(s);
+    }
+}
+
+/* Expands the template from the ranges of the result, rather than by
+ * matching the expression again, so that it works for any result and
+ * for a string which has changed since the match (offset is the change
+ * in the position of the result).  The template syntax is that of
+ * -replaceMatchesInString:options:range:withTemplate: (ICU's): a
+ * backslash makes the next character literal, and $ followed by digits
+ * is replaced by the text of that capture group, taking as many digits as
+ * still name a group of the result.  A $ not followed by a digit is
+ * literal.  Answers nil if the first digit after a $ names no range of
+ * the result.
+ */
 - (NSString*) replacementStringForResult: (NSTextCheckingResult*)result
                                 inString: (NSString*)string
                                   offset: (NSInteger)offset
                                 template: (NSString*)template
 {
-  UErrorCode	s = 0;
-  NSRange	range = [result range];
-  URegularExpression *r;
-  uint32_t	replLength = [template length];
-  unichar	replacement[replLength];
-  int32_t	outLength;
-  NSString	*str = nil;
-  GS_BEGINITEMBUF(buffer, range.length, unichar)
+  NSUInteger		count = [result numberOfRanges];
+  NSUInteger		length = [template length];
+  NSMutableString	*output;
+  NSUInteger		start = 0;
+  NSUInteger		i = 0;
+  GS_BEGINITEMBUF(chars, length, unichar)
 
-  r = setupRegex(regex,
-		 [string substringWithRange: range],
-		 buffer,
-		 range.length,
-		 0,
-		 NSMakeRange(0, range.length),
-		 0);
-  [template getCharacters: replacement range: NSMakeRange(0, replLength)];
-
-  outLength = uregex_replaceFirst(r, replacement, replLength, NULL, 0, &s);
-  if (U_SUCCESS(s) || U_BUFFER_OVERFLOW_ERROR == s)
+  [template getCharacters: chars range: NSMakeRange(0, length)];
+  output = [NSMutableString stringWithCapacity: length];
+  while (i < length)
     {
-      unichar	*output;
-
-      s = 0;
-      output = NSZoneMalloc(0, (outLength + 1) * sizeof(unichar));
-      uregex_replaceFirst(r, replacement, replLength,
-	output, outLength + 1, &s);
-      if (U_SUCCESS(s))
+      if (chars[i] == '\\')
 	{
-	  str = AUTORELEASE([[NSString alloc]
-	    initWithCharactersNoCopy: output
-	    length: outLength
-	    freeWhenDone: YES]);
+	  appendCharacters(output, chars, start, i);
+	  start = i + 1;	/* The next character is literal */
+	  i += 2;
+	}
+      else if (chars[i] == '$' && i + 1 < length
+	&& chars[i + 1] >= '0' && chars[i + 1] <= '9')
+	{
+	  NSUInteger	group = chars[i + 1] - '0';
+	  NSUInteger	j = i + 2;
+	  NSRange	r;
+
+	  if (group >= count)
+	    {
+	      output = nil;
+	      break;
+	    }
+	  while (j < length && chars[j] >= '0' && chars[j] <= '9'
+	    && group * 10 + (chars[j] - '0') < count)
+	    {
+	      group = group * 10 + (chars[j] - '0');
+	      j++;
+	    }
+	  appendCharacters(output, chars, start, i);
+	  r = [result rangeAtIndex: group];
+	  if (r.location != NSNotFound && r.length > 0)
+	    {
+	      r.location += offset;
+	      [output appendString: [string substringWithRange: r]];
+	    }
+	  start = i = j;
 	}
       else
 	{
-	  NSZoneFree(0, output);
+	  i++;
 	}
     }
-  uregex_close(r);
+  if (output != nil)
+    {
+      appendCharacters(output, chars, start, MIN(i, length));
+    }
   GS_ENDITEMBUF()
-  return str;
+  return output;
 }
-#endif
 
 + (NSString*) escapedPatternForString: (NSString *)string
 {
