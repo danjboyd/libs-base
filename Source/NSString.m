@@ -2134,6 +2134,31 @@ register_printf_atsign ()
   return self;
 }
 
+/* Reads the contents of url for the URL initializers, setting *error
+ * when they cannot be read.
+ */
+static NSData *
+dataWithContentsOfURL(NSURL *url, NSError **error)
+{
+  NSError	*e = nil;
+  NSData	*d;
+
+  d = [NSDataClass dataWithContentsOfURL: url options: 0 error: &e];
+  if (nil == d && error != 0)
+    {
+      if (nil == e)
+	{
+	  /* A URL other than a file URL gives no error of its own. */
+	  e = [NSError errorWithDomain: NSCocoaErrorDomain
+				  code: NSFileReadUnknownError
+			      userInfo: [NSDictionary dictionaryWithObject: url
+				forKey: NSURLErrorKey]];
+	}
+      *error = e;
+    }
+  return d;
+}
+
 /**
  * <p>Initialises the receiver with the contents of the given URL.
  * </p>
@@ -2167,7 +2192,6 @@ register_printf_atsign ()
     }
   if (len == 0)
     {
-      DESTROY(self);
       return [self initWithBytesNoCopy: (char *)""
 				length: 0
 			      encoding: NSASCIIStringEncoding
@@ -2207,7 +2231,7 @@ register_printf_atsign ()
   unsigned int		len;
   const unsigned char	*data_bytes;
 
-  d = [NSDataClass dataWithContentsOfURL: url];
+  d = dataWithContentsOfURL(url, error);
   if (d == nil)
     {
       DESTROY(self);
@@ -2217,7 +2241,6 @@ register_printf_atsign ()
   len = [d length];
   if (len == 0)
     {
-      DESTROY(self);
       return [self initWithBytesNoCopy: (char *)""
 				length: 0
 			      encoding: NSASCIIStringEncoding
@@ -2261,7 +2284,7 @@ register_printf_atsign ()
   NSData		*d;
   unsigned int		len;
 
-  d = [NSDataClass dataWithContentsOfURL: url];
+  d = dataWithContentsOfURL(url, error);
   if (d == nil)
     {
       DESTROY(self);
@@ -2270,7 +2293,6 @@ register_printf_atsign ()
   len = [d length];
   if (len == 0)
     {
-      DESTROY(self);
       return [self initWithBytesNoCopy: (char *)""
 				length: 0
 			      encoding: NSASCIIStringEncoding
