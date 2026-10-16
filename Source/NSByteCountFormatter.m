@@ -48,15 +48,20 @@
 #include	"GSInternal.h"
 GS_PRIVATE_INTERNAL(NSByteCountFormatter)
 
-// Unit definitions...
-#define KB ((double)1024.0)
-#define MB (KB * 1024.0)
-#define GB (MB * 1024.0)
-#define TB (GB * 1024.0)
-#define PB (TB * 1024.0)
-#define EB (PB * 1024.0)
-#define ZB (EB * 1024.0)
-#define YB (ZB * 1024.0)
+#include	<math.h>
+
+/* Unit definitions, in terms of the size of a kilobyte (kilo), which is
+ * 1000 bytes for the file and decimal count styles and 1024 bytes for
+ * the memory and binary ones.
+ */
+#define KB (kilo)
+#define MB (KB * kilo)
+#define GB (MB * kilo)
+#define TB (GB * kilo)
+#define PB (TB * kilo)
+#define EB (PB * kilo)
+#define ZB (EB * kilo)
+#define YB (ZB * kilo)
 
 @implementation NSByteCountFormatter
   
@@ -81,9 +86,20 @@ GS_PRIVATE_INTERNAL(NSByteCountFormatter)
   return [self stringFromByteCount: byteCount];
 }
 
+- (double) _kilo
+{
+  if (internal->_countStyle == NSByteCountFormatterCountStyleMemory
+    || internal->_countStyle == NSByteCountFormatterCountStyleBinary)
+    {
+      return 1024.0;
+    }
+  return 1000.0;
+}
+
 - (NSByteCountFormatterUnits) _adaptiveSettings: (double)byteCount
 {
   NSByteCountFormatterUnits units = NSByteCountFormatterUseBytes;
+  double		    kilo = [self _kilo];
   
   if (byteCount >= KB) 
     {
@@ -125,6 +141,7 @@ GS_PRIVATE_INTERNAL(NSByteCountFormatter)
   NSString                      *outputFormat = @"";
   NSString                      *unitName = @"";
   NSByteCountFormatterUnits     allowed = internal->_allowedUnits;
+  double                        kilo = [self _kilo];
 
   if (internal->_adaptive)
     {
@@ -178,36 +195,47 @@ GS_PRIVATE_INTERNAL(NSByteCountFormatter)
 
   if (internal->_allowsNonnumericFormatting && count == 0.0)
     {
-      outputFormat = [outputFormat stringByAppendingString: @"Zero"];
+      outputFormat = @"Zero";
     }
   else
     {
-      if (internal->_zeroPadsFractionDigits)
+      int	digits = 0;
+      double	scale;
+
+      /* Adaptive formatting shows no fraction digits for bytes and KB,
+       * one for MB and two for larger units, rounded to the nearest.
+       * Trailing zeros are dropped unless zeroPadsFractionDigits is set.
+       */
+      if (internal->_adaptive)
 	{
-	  outputFormat = [outputFormat stringByAppendingString: @"%01.08f"];
-	}
-      else
-	{
-	  NSInteger whole = (NSInteger)(count / 1);
-	  double frac = (double)count - (double)whole;
-	  if (frac > 0.0)
+	  if (allowed == NSByteCountFormatterUseMB)
 	    {
-	      whole += 1;
+	      digits = 1;
 	    }
-	  count = (double)whole;
-	  outputFormat = [outputFormat stringByAppendingString: @"%01.0f"];
+	  else if (allowed > NSByteCountFormatterUseMB)
+	    {
+	      digits = 2;
+	    }
 	}
-    }
-  
-  if (internal->_includesUnit)
-    {
-      NSString *paddedUnit = [NSString stringWithFormat: @" %@",unitName];
-      outputFormat = [outputFormat stringByAppendingString: paddedUnit];
+      scale = pow(10.0, digits);
+      count = round(count * scale) / scale;
+      if (internal->_zeroPadsFractionDigits == NO)
+	{
+	  while (digits > 0
+	    && fmod(round(count * pow(10.0, digits)), 10.0) == 0.0)
+	    {
+	      digits--;
+	    }
+	}
+      outputFormat = [NSString stringWithFormat: @"%.*f", digits, count];
     }
 
-  // Do the formatting...
-  result = [NSString stringWithFormat: outputFormat, count];
-  
+  if (internal->_includesUnit)
+    {
+      outputFormat = [outputFormat stringByAppendingFormat: @" %@", unitName];
+    }
+  result = outputFormat;
+
   return result;
 }
 

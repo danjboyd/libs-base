@@ -29,7 +29,9 @@ int main()
   result = [formatter stringFromByteCount: 0];
   PASS(result != nil && [result length] > 0, "Handle zero bytes");
 
-  // Test boundary values
+  // Test boundary values (a binary kilobyte; the default file style
+  // has 1000 bytes to the kilobyte)
+  [formatter setCountStyle: NSByteCountFormatterCountStyleBinary];
   result = [formatter stringFromByteCount: 1023]; // Just under 1 KB
   PASS(result != nil && [result rangeOfString: @"1023"].location != NSNotFound ||
        [result rangeOfString: @"1,023"].location != NSNotFound, 

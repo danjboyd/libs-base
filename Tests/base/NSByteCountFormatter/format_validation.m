@@ -60,13 +60,13 @@ int main()
         [result rangeOfString: @"B"].location != NSNotFound),
        "1000 bytes in decimal produces valid output");
 
-  // Test that binary 1024 != decimal 1000
+  // Test that 1000 bytes is a kilobyte in the decimal style only
   [formatter setCountStyle: NSByteCountFormatterCountStyleBinary];
-  NSString *binary1024 = [formatter stringFromByteCount: 1024];
+  NSString *binary1000 = [formatter stringFromByteCount: 1000];
   [formatter setCountStyle: NSByteCountFormatterCountStyleDecimal];
   NSString *decimal1000 = [formatter stringFromByteCount: 1000];
-  PASS(![binary1024 isEqualToString: decimal1000],
-       "Binary 1024 and decimal 1000 produce different formats");
+  PASS(![binary1000 isEqualToString: decimal1000],
+       "Binary and decimal styles format 1000 bytes differently");
 
   END_SET("NSByteCountFormatter format validation");
   return 0;
