@@ -2009,71 +2009,89 @@ static NSUInteger _defaultBehavior = NSNumberFormatterBehavior10_4;
                   error: (out NSError **) error
 {
 #if GS_USE_ICU == 1
-  BOOL result;
-  BOOL genDec = [self generatesDecimalNumbers];
-  NSUInteger inLen;
-  int32_t parsePos = rangep->location;
-  UChar inBuffer[BUFFER_SIZE];
-  UErrorCode err = U_ZERO_ERROR;
-  
-  inLen = [aString length];
+  BOOL		result;
+  BOOL		genDec = [self generatesDecimalNumbers];
+  NSRange	range;
+  NSUInteger	inLen;
+  int32_t	parsePos;
+  UChar		inBuffer[BUFFER_SIZE];
+  UErrorCode	err = U_ZERO_ERROR;
+  id		value = nil;
+
+  /* Parse the given range of the string (the whole string without one),
+   * starting at its location.
+   */
+  if (rangep != NULL)
+    {
+      range = *rangep;
+    }
+  else
+    {
+      range = NSMakeRange(0, [aString length]);
+    }
+  inLen = NSMaxRange(range);
+  if (inLen > [aString length])
+    inLen = [aString length];
   if (inLen > BUFFER_SIZE)
     inLen = BUFFER_SIZE;
+  parsePos = (int32_t)range.location;
   [aString getCharacters: inBuffer range: NSMakeRange(0, inLen)];
-  
+
   if (genDec)  // Generate decimal number?  This should be the default.
     {
-#if 0 // FIXME: The unum_parseDecimal function is only available on ICU > 4.4
-      int32_t outLen;
-      char outBuffer[BUFFER_SIZE];
-      
-      outLen = 
-        unum_parseDecimal (internal->_formatter, inBuffer, inLen, &parsePos,
-          outBuffer, BUFFER_SIZE-1, &err);
-      if (U_SUCCESS(err))
+      char	outBuffer[BUFFER_SIZE];
+      int32_t	outLen;
+
+      outLen = unum_parseDecimal(internal->_formatter, inBuffer, inLen,
+	&parsePos, outBuffer, BUFFER_SIZE - 1, &err);
+      if (U_SUCCESS(err) && outLen < BUFFER_SIZE)
         {
-          NSString *outStr = [NSString stringWithCString: outBuffer
-                                                  length: outLen];
-          *anObject = [NSDecimalNumber decimalNumberWithString: outStr];
-          result = YES;
-        }
-      else
-        {
-          if (error)
-            *error = [NSError errorWithDomain: @"NSNumberFormatterParseError"
-                                         code: err
-                                     userInfo: nil];
-          *anObject = nil;
-          *rangep = NSMakeRange (rangep->location, parsePos);
-          result = NO;
-        }
-#endif
-      result = NO;
+	  NSString	*outStr;
+	  NSDictionary	*point;
+
+	  /* ICU answers the number with a '.' decimal point and perhaps an
+	   * exponent, whatever the formatter's locale.
+	   */
+	  outBuffer[outLen] = '\0';
+	  outStr = [NSString stringWithUTF8String: outBuffer];
+	  point = [NSDictionary dictionaryWithObject: @"."
+					      forKey: NSLocaleDecimalSeparator];
+	  value = [NSDecimalNumber decimalNumberWithString: outStr
+						    locale: point];
+	}
     }
   else  // If not generating NSDecimalNumber use unum_parseDouble()
     {
       double output;
-      
-      output = 
-        unum_parseDouble (internal->_formatter, inBuffer, inLen, &parsePos,
-          &err);
+
+      output = unum_parseDouble(internal->_formatter, inBuffer, inLen,
+	&parsePos, &err);
       if (U_SUCCESS(err))
         {
-          *anObject = [NSNumber numberWithDouble: output];
-          result = YES;
-        }
-      else
-        {
-          if (error)
-            *error = [NSError errorWithDomain: @"NSNumberFormatterParseError"
-                                         code: err
-                                     userInfo: nil];
-          *anObject = nil;
-          *rangep = NSMakeRange (rangep->location, parsePos);
-          result = NO;
+          value = [NSNumber numberWithDouble: output];
         }
     }
-  
+
+  if (value != nil)
+    {
+      if (rangep != NULL)
+	{
+	  *rangep = NSMakeRange(range.location, parsePos - range.location);
+	}
+      result = YES;
+    }
+  else
+    {
+      if (error)
+	*error = [NSError errorWithDomain: @"NSNumberFormatterParseError"
+				     code: err
+				 userInfo: nil];
+      result = NO;
+    }
+  if (anObject != NULL)
+    {
+      *anObject = value;
+    }
   return result;
 #else
   return NO;
