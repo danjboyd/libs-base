@@ -36,8 +36,10 @@
 #import <Foundation/NSAutoreleasePool.h>
 #import <Foundation/NSData.h>
 #import <Foundation/NSDebug.h>
+#import <Foundation/NSError.h>
 #import <Foundation/NSException.h>
 #import <Foundation/NSFileManager.h>
+#import <Foundation/FoundationErrors.h>
 #import <Foundation/NSURL.h>
 #import <Foundation/NSValue.h>
 #import <Foundation/NSFileWrapper.h>
@@ -612,7 +614,6 @@
              options: (NSFileWrapperReadingOptions)options
                error: (NSError**)outError
 {
-  // FIXME
   NSFileManager *fm = [NSFileManager defaultManager];
   NSString *path = [url path];
   NSDictionary *fileAttributes;
@@ -624,42 +625,47 @@
   fileType = [fileAttributes fileType];
   if ([fileType isEqualToString: NSFileTypeDirectory])
     {
-      if (options & NSFileWrapperReadingImmediate)
-        {
-          NSString *filename;
-          NSMutableArray *fileWrappers = [NSMutableArray array];
-          NSArray *filenames = [fm directoryContentsAtPath: path];
-          NSEnumerator *enumerator = [filenames objectEnumerator];
+      NSString *filename;
+      NSMutableArray *fileWrappers = [NSMutableArray array];
+      NSArray *filenames = [fm directoryContentsAtPath: path];
+      NSEnumerator *enumerator = [filenames objectEnumerator];
 
-          while ((filename = [enumerator nextObject]) != nil)
-            {
-              NSFileWrapper *w;
-
-              w = [[NSFileWrapper alloc] initWithPath: 
-                                           [path stringByAppendingPathComponent: filename]];
-              [fileWrappers addObject: w];
-              RELEASE(w);
-            }
-          self = [self initDirectoryWithFileWrappers: 
-                         [NSDictionary dictionaryWithObjects: fileWrappers
-                                                     forKeys: filenames]];
-        }
-      else
+      /* The children are read now whether or not the options ask for
+       * NSFileWrapperReadingImmediate; Cocoa may read them later, but
+       * the wrapper has them either way.
+       */
+      while ((filename = [enumerator nextObject]) != nil)
         {
-          self = [self initDirectoryWithFileWrappers: nil];
+          NSFileWrapper *w;
+
+          w = [[NSFileWrapper alloc] initWithPath: 
+                                       [path stringByAppendingPathComponent: filename]];
+          [fileWrappers addObject: w];
+          RELEASE(w);
         }
+      self = [self initDirectoryWithFileWrappers: 
+                     [NSDictionary dictionaryWithObjects: fileWrappers
+                                                 forKeys: filenames]];
     }
   else if ([fileType isEqualToString: NSFileTypeRegular])
     {
+      NSData *data;
+
       if (options & NSFileWrapperReadingWithoutMapping)
         {
-          self = [self initRegularFileWithContents: 
-                         AUTORELEASE([[NSData alloc] initWithContentsOfFile: path])];
+          data = [[NSData alloc] initWithContentsOfFile: path];
         }
       else
         {
-          self = [self initRegularFileWithContents: 
-                         AUTORELEASE([[NSData alloc] initWithContentsOfMappedFile: path])];
+          data = [[NSData alloc] initWithContentsOfMappedFile: path];
+        }
+      if (nil == data)
+        {
+          fileType = nil;
+        }
+      else
+        {
+          self = [self initRegularFileWithContents: AUTORELEASE(data)];
         }
     }
   else if ([fileType isEqualToString: NSFileTypeSymbolicLink])
@@ -667,13 +673,33 @@
       self = [self initSymbolicLinkWithDestination: 
                  [fm pathContentOfSymbolicLinkAtPath: path]];
     }
+  else
+    {
+      fileType = nil;
+    }
+
+  if (nil == fileType)
+    {
+      if (outError != NULL)
+        {
+          NSInteger code;
+
+          code = (nil == fileAttributes)
+            ? NSFileReadNoSuchFileError : NSFileReadUnknownError;
+          *outError = [NSError errorWithDomain: NSCocoaErrorDomain
+            code: code
+            userInfo: [NSDictionary dictionaryWithObjectsAndKeys:
+              path, NSFilePathErrorKey, url, NSURLErrorKey, nil]];
+        }
+      return NO;
+    }
 
   // Store the full path in filename, the specification is unclear in this point
   [self setFilename: path];
   [self setPreferredFilename: [path lastPathComponent]];
-  [self setFileAttributes: [fm fileAttributesAtPath: path traverseLink: NO]];
+  [self setFileAttributes: fileAttributes];
 
-  return NO;
+  return YES;
 }
 
 - (BOOL) writeToURL: (NSURL*)url
