@@ -57,7 +57,7 @@ static NSDecimalNumberHandler *handler;
 {
   if (handler == nil)
     handler = [[self alloc] initWithRoundingMode: NSRoundPlain
-			    scale: 38
+			    scale: NSDecimalNoScale
 			    raiseOnExactness: NO
 			    raiseOnOverflow: YES
 			    raiseOnUnderflow: YES
@@ -784,6 +784,7 @@ static NSDecimalNumber *one;
 	return res;
     }
 
+  NSDecimalRound(&result, &result, [behavior scale], [behavior roundingMode]);
   return [NSDecimalNumber decimalNumberWithDecimal: result];
 }
 
@@ -813,6 +814,7 @@ static NSDecimalNumber *one;
 	return res;
     }
 
+  NSDecimalRound(&result, &result, [behavior scale], [behavior roundingMode]);
   return [NSDecimalNumber decimalNumberWithDecimal: result];
 }
 
@@ -844,6 +846,7 @@ static NSDecimalNumber *one;
 	return res;
     }
 
+  NSDecimalRound(&result, &result, [behavior scale], [behavior roundingMode]);
   return [NSDecimalNumber decimalNumberWithDecimal: result];
 }
 
@@ -873,6 +876,7 @@ static NSDecimalNumber *one;
 	return res;
     }
 
+  NSDecimalRound(&result, &result, [behavior scale], [behavior roundingMode]);
   return [NSDecimalNumber decimalNumberWithDecimal: result];
 }
 
@@ -902,6 +906,7 @@ static NSDecimalNumber *one;
 	return res;
     }
 
+  NSDecimalRound(&result, &result, [behavior scale], [behavior roundingMode]);
   return [NSDecimalNumber decimalNumberWithDecimal: result];
 }
 
@@ -931,6 +936,7 @@ static NSDecimalNumber *one;
 	return res;
     }
 
+  NSDecimalRound(&result, &result, [behavior scale], [behavior roundingMode]);
   return [NSDecimalNumber decimalNumberWithDecimal: result];
 }
 

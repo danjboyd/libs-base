@@ -142,7 +142,8 @@ GS_EXPORT_CLASS
 
 /**
  *  Provides an instance implementing the default behavior for the
- *  [NSDecimalNumber] class.  38 decimal digits, rounded to closest return
+ *  [NSDecimalNumber] class.  No scale (<code>NSDecimalNoScale</code>, so
+ *  results keep every digit they can hold), rounded to closest return
  *  value (<code>NSRoundPlain</code>).  Exceptions raised on overflow,
  *  underflow, and divide by zero.
  */
