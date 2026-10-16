@@ -402,33 +402,40 @@ static NSDateFormatterBehavior _defaultBehavior = 0;
   NSString	*result = nil;
 
 #if GS_USE_ICU == 1
-  int32_t	length;
-  unichar	*string;
-  UDate		udate = [date timeIntervalSince1970] * 1000.0;
-  UErrorCode	err = U_ZERO_ERROR;
-  
-  length = udat_format (internal->_formatter, udate, NULL, 0, NULL, &err);
-  string = malloc(sizeof(UChar) * (length + 1));
-  err = U_ZERO_ERROR;
-  udat_format (internal->_formatter, udate, string, length, NULL, &err);
-  if (U_SUCCESS(err))
+  /* A formatter with the 10.0 behavior has a strftime-style format,
+   * which ICU cannot use.
+   */
+  if (internal->_behavior != NSDateFormatterBehavior10_0)
     {
-      result = AUTORELEASE([[NSString allocWithZone: NSDefaultMallocZone()]
-        initWithBytesNoCopy: string
-        length: length * sizeof(UChar)
-        encoding: NSUnicodeStringEncoding
-        freeWhenDone: YES]);
-    }
-  else
-    {
-      result = nil;
-      free(string);
+      int32_t		length;
+      unichar		*string;
+      UDate		udate = [date timeIntervalSince1970] * 1000.0;
+      UErrorCode	err = U_ZERO_ERROR;
+
+      length = udat_format (internal->_formatter, udate, NULL, 0, NULL, &err);
+      string = malloc(sizeof(UChar) * (length + 1));
+      err = U_ZERO_ERROR;
+      udat_format (internal->_formatter, udate, string, length, NULL, &err);
+      if (U_SUCCESS(err))
+	{
+	  result = AUTORELEASE([[NSString allocWithZone: NSDefaultMallocZone()]
+	    initWithBytesNoCopy: string
+	    length: length * sizeof(UChar)
+	    encoding: NSUnicodeStringEncoding
+	    freeWhenDone: YES]);
+	}
+      else
+	{
+	  result = nil;
+	  free(string);
+	}
     }
 #endif
   if (nil == result)
     {
-      /* Fallback for backward compatibility in -stringForObjectValue:
-       * use old style format if we don't have ICU or if ICU fails.
+      /* Use the old style format for the 10.0 behavior, and for
+       * backward compatibility in -stringForObjectValue: if we don't
+       * have ICU or if ICU fails.
        */
       result = [date descriptionWithCalendarFormat: _dateFormat
 					  timeZone: [NSTimeZone defaultTimeZone]
