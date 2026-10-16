@@ -886,11 +886,17 @@ static NSUInteger posForIndex(GSIArray array, NSUInteger index)
   GS_DISPATCH_CREATE_QUEUE_AND_GROUP_FOR_ENUMERATION(enumQueue, opts)
   while (isReverse ? i >= c : i <= c)
     {
-      NSRange r = GSIArrayItemAtIndex(_array, i).ext;
+      /* Pass only the part of each stored range within the range asked for.
+       */
+      NSRange r = NSIntersectionRange(GSIArrayItemAtIndex(_array, i).ext,
+	range);
 
-      GS_DISPATCH_SUBMIT_BLOCK(enumQueueGroup, enumQueue,
-        if (shouldStop == NO) {, },
-        aBlock, r, &shouldStop);
+      if (r.length > 0)
+	{
+	  GS_DISPATCH_SUBMIT_BLOCK(enumQueueGroup, enumQueue,
+	    if (shouldStop == NO) {, },
+	    aBlock, r, &shouldStop);
+	}
 
       if (shouldStop)
         {
