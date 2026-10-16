@@ -1866,13 +1866,15 @@ compare(id elem1, id elem2, void* context)
   BLOCK_SCOPE BOOL      shouldStop = NO;
   id<NSFastEnumeration> enumerator = self;
   NSUInteger            count = 0;
+  BOOL                  isReverse = (opts & NSEnumerationReverse) ? YES : NO;
   BLOCK_SCOPE NSLock    *setLock = nil;
 
   /* If we are enumerating in reverse, use the reverse enumerator for fast
-   * enumeration. */
-  if (opts & NSEnumerationReverse)
+   * enumeration, counting the receiver's indexes down from the last. */
+  if (isReverse)
     {
       enumerator = [self reverseObjectEnumerator];
+      count = [self count] - 1;
     }
   if (opts & NSEnumerationConcurrent)
     {
@@ -1909,7 +1911,14 @@ compare(id elem1, id elem2, void* context)
         {
           break;
         }
-      count++;
+      if (isReverse)
+        {
+          count--;
+        }
+      else
+        {
+          count++;
+        }
     GS_END_FOR(enumerator)
     GS_DISPATCH_TEARDOWN_QUEUE_AND_GROUP_FOR_ENUMERATION(enumQueue, opts);
   }
@@ -1968,14 +1977,16 @@ compare(id elem1, id elem2, void* context)
   id<NSFastEnumeration> enumerator = self;
   BLOCK_SCOPE BOOL      shouldStop = NO;
   NSUInteger            count = 0;
+  BOOL                  isReverse = (opts & NSEnumerationReverse) ? YES : NO;
   BLOCK_SCOPE NSUInteger index = NSNotFound;
   BLOCK_SCOPE NSLock    *indexLock = nil;
 
   /* If we are enumerating in reverse, use the reverse enumerator for fast
-   * enumeration. */
-  if (opts & NSEnumerationReverse)
+   * enumeration, counting the receiver's indexes down from the last. */
+  if (isReverse)
     {
       enumerator = [self reverseObjectEnumerator];
+      count = [self count] - 1;
     }
 
   if (opts & NSEnumerationConcurrent)
@@ -2017,7 +2028,14 @@ compare(id elem1, id elem2, void* context)
         {
           break;
         }
-      count++;
+      if (isReverse)
+        {
+          count--;
+        }
+      else
+        {
+          count++;
+        }
     GS_END_FOR(enumerator)
     GS_DISPATCH_TEARDOWN_QUEUE_AND_GROUP_FOR_ENUMERATION(enumQueue, opts);
   }
