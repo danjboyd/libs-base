@@ -3480,6 +3480,13 @@ NSLog(@"%@", err);
 - (instancetype) initWithURL: (NSURL *)url 
      resolvingAgainstBaseURL: (BOOL)resolve
 {
+  if (NO == resolve && [url baseURL] != nil)
+    {
+      /* Without resolving, the components are those of the relative
+       * part of the URL alone, as in Cocoa.
+       */
+      return [self initWithString: [url relativeString]];
+    }
   self = [self init];
   if (self != nil)
     {
