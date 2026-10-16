@@ -1507,7 +1507,7 @@ static NSLock	*cached_proxies_gate = nil;
       c = [NSMutableArray arrayWithCapacity: IremoteProxies->nodeCount];
       while (node != 0)
 	{
-	  [c addObject: node->key.obj];
+	  [c addObject: node->value.obj];
 	  node = GSIMapEnumeratorNextNode(&enumerator);
 	}
     }
