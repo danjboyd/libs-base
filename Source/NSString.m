@@ -2046,16 +2046,12 @@ register_printf_atsign ()
   unsigned int		len;
   const unsigned char	*data_bytes;
 
-  d = [[NSDataClass alloc] initWithContentsOfFile: path];
+  d = [[NSDataClass alloc] initWithContentsOfFile: path
+                                          options: 0
+                                            error: error];
   if (nil == d)
     {
       DESTROY(self);
-      if (error != 0)
-        {
-          *error = [NSError errorWithDomain: NSCocoaErrorDomain
-                                       code: NSFileReadUnknownError
-                                   userInfo: nil];
-        }
       return nil;
     }
   *enc = _DefaultStringEncoding;
@@ -2107,7 +2103,9 @@ register_printf_atsign ()
   NSData		*d;
   unsigned int		len;
 
-  d = [[NSDataClass alloc] initWithContentsOfFile: path];
+  d = [[NSDataClass alloc] initWithContentsOfFile: path
+                                          options: 0
+                                            error: error];
   if (d == nil)
     {
       DESTROY(self);
