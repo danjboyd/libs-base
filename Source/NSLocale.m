@@ -869,6 +869,11 @@ static NSRecursiveLock *classLock = nil;
   return _localeId;
 }
 
+- (NSUInteger) hash
+{
+  return [_localeId hash];
+}
+
 - (BOOL) isEqual: (id)obj
 {
   if ([obj isKindOfClass: [self class]])
