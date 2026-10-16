@@ -1851,11 +1851,40 @@ compare(id elem1, id elem2, void* context)
 			   options: (NSEnumerationOptions)opts
 		        usingBlock: (GSEnumeratorBlock)block
 {
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  [[self objectsAtIndexes: indexSet] enumerateObjectsWithOptions: opts
-						      usingBlock: block];
-#pragma GCC diagnostic pop
+  BLOCK_SCOPE BOOL	shouldStop = NO;
+  BOOL			isReverse = (opts & NSEnumerationReverse) ? YES : NO;
+  NSUInteger		last = [indexSet lastIndex];
+  NSUInteger		index;
+
+  if (last != NSNotFound && last >= [self count])
+    {
+      [NSException raise: NSRangeException
+		  format: @"[%@-%@]: index %"PRIuPTR" beyond count %"PRIuPTR,
+	NSStringFromClass([self class]), NSStringFromSelector(_cmd),
+	last, [self count]];
+    }
+
+  /* Pass the block each object with its index in the receiver, not in
+   * the objects at the indexes.
+   */
+  index = isReverse ? last : [indexSet firstIndex];
+  {
+  GS_DISPATCH_CREATE_QUEUE_AND_GROUP_FOR_ENUMERATION(enumQueue, opts)
+  while (index != NSNotFound)
+    {
+      id	obj = [self objectAtIndex: index];
+
+      GS_DISPATCH_SUBMIT_BLOCK(enumQueueGroup, enumQueue,
+	if (shouldStop == NO) {, }, block, obj, index, &shouldStop);
+      if (shouldStop)
+	{
+	  break;
+	}
+      index = isReverse ? [indexSet indexLessThanIndex: index]
+	: [indexSet indexGreaterThanIndex: index];
+    }
+  GS_DISPATCH_TEARDOWN_QUEUE_AND_GROUP_FOR_ENUMERATION(enumQueue, opts)
+  }
 }
 
 - (NSIndexSet *) indexesOfObjectsWithOptions: (NSEnumerationOptions)opts

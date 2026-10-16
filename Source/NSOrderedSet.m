@@ -616,8 +616,9 @@ static SEL	remSel;
 {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-  [[self objectsAtIndexes: indexSet] enumerateObjectsWithOptions: opts
-						      usingBlock: aBlock];
+  [[self array] enumerateObjectsAtIndexes: indexSet
+				  options: opts
+			       usingBlock: aBlock];
 #pragma GCC diagnostic pop
 }
 
