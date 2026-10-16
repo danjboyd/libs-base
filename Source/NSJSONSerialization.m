@@ -1172,11 +1172,14 @@ writeObject(id obj, NSMutableString *output, NSInteger tabs, NSJSONWritingOption
                   options: (NSJSONReadingOptions)opt
                     error: (NSError **)error
 {
-  uint8_t BOM[4];
+  uint8_t BOM[4] = { ' ', ' ', ' ', ' ' };
   ParserState p = { 0 };
   id obj;
 
-  [data getBytes: BOM length: 4];
+  /* Data shorter than four bytes leaves the rest of BOM as spaces, which
+   * the encoding detection takes for ASCII characters.
+   */
+  [data getBytes: BOM length: MIN([data length], 4)];
   getEncoding(BOM, &p);
   p.source = [[NSString alloc] initWithData: data encoding: p.enc];
   p.updateBuffer = updateStringBuffer;
