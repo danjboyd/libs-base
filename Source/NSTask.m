@@ -330,6 +330,10 @@ pty_slave(const char* name)
   RELEASE(_standardInput);
   RELEASE(_standardOutput);
   RELEASE(_launchingThread);
+  if (_handler != NULL)
+    {
+      Block_release(_handler);
+    }
   [super dealloc];
 }
 
@@ -920,9 +924,19 @@ pty_slave(const char* name)
   error: (NSError **)error 
   terminationHandler: (GSTaskTerminationHandler)terminationHandler
 {
-  NSTask	*task = [self launchedTaskWithLaunchPath: [url path]
-					       arguments: arguments];
-  task->_handler = terminationHandler;
+  NSTask	*task = AUTORELEASE([self new]);
+
+  [task setLaunchPath: [url path]];
+  [task setArguments: arguments];
+  /* Copy the handler (the caller's block may live on its stack) and
+   * install it before launching, so that a task which ends at once
+   * still calls it.
+   */
+  if (terminationHandler != NULL)
+    {
+      task->_handler = Block_copy(terminationHandler);
+    }
+  [task launch];
   if (error)
     {
       *error = nil;
