@@ -346,8 +346,12 @@ GSProgressIsIndeterminate(int64_t total, int64_t completed)
   parent: (NSProgress *)parent 
   pendingUnitCount: (int64_t)portionOfParentTotalUnitCount
 {
-  NSProgress *p = [[NSProgress alloc] initWithParent: parent
-    userInfo: nil];
+  /* The parent need not be the current progress, and the new progress
+   * must not also become an implicit child of the current progress, so
+   * create it without a parent and add it to the parent explicitly.
+   */
+  NSProgress *p = [[NSProgress alloc] initWithParent: nil
+    userInfo: nil implicitChild: NO];
 
   [p _setTotalUnitCount: unitCount];
   [parent addChild: p withPendingUnitCount: portionOfParentTotalUnitCount];
