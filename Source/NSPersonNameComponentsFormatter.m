@@ -233,14 +233,16 @@
 {
   NSPersonNameComponents *pnc = [self personNameComponentsFromString: string];
 
-  if (pnc != nil)
+  if (obj != NULL)
     {
       *obj = pnc;
-      *error = nil;
     }
-  else
+  if (pnc != nil)
     {
-      *obj = nil;
+      return YES;
+    }
+  if (error != NULL)
+    {
       *error = @"Could not parse string into NSPersonNameComponents object";
     }
   return NO;
