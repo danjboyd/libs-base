@@ -221,6 +221,7 @@ static NSLock	*clientsLock = nil;
 static char *buildURL(parsedURL *base, parsedURL *rel, BOOL standardize);
 static id clientForHandle(void *data, NSURLHandle *hdl);
 static char *findUp(char *str);
+static void removeDotSegments(char *path);
 static char *unescape(const char *from, char * to);
 
 static const char	*rfc3986ok = "!#$&'()*+,/:;=?@[]ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz 0123456789-_~.";
@@ -397,6 +398,13 @@ static char *buildURL(parsedURL *base, parsedURL *rel, BOOL standardize)
     }
   *tmp = '\0';
 
+  if (base != 0)
+    {
+      /* A path resolved against a base has its dot segments removed.
+       */
+      removeDotSegments(ptr);
+    }
+
   if (standardize == YES)
     {
       /*
@@ -536,6 +544,75 @@ static char *findUp(char *str)
       str++;
     }
   return 0;
+}
+
+/**
+ * Remove the '.' and '..' segments of a path in place, as RFC 3986
+ * section 5.2.4 does for a path resolved against a base.
+ */
+static void removeDotSegments(char *path)
+{
+  char	*in = path;
+  char	*out = path;
+
+  while (*in != '\0')
+    {
+      if (in[0] == '.' && in[1] == '.' && in[2] == '/')
+	{
+	  in += 3;
+	}
+      else if (in[0] == '.' && in[1] == '/')
+	{
+	  in += 2;
+	}
+      else if (in[0] == '/' && in[1] == '.' && in[2] == '/')
+	{
+	  in += 2;
+	}
+      else if (in[0] == '/' && in[1] == '.' && in[2] == '\0')
+	{
+	  in[1] = '/';
+	  in += 1;
+	}
+      else if (in[0] == '/' && in[1] == '.' && in[2] == '.'
+	&& (in[3] == '/' || in[3] == '\0'))
+	{
+	  if (in[3] == '\0')
+	    {
+	      in[2] = '/';
+	      in += 2;
+	    }
+	  else
+	    {
+	      in += 3;
+	    }
+	  /* Remove the last segment written and its leading '/'.
+	   */
+	  while (out > path)
+	    {
+	      if (*--out == '/')
+		{
+		  break;
+		}
+	    }
+	}
+      else if ((in[0] == '.' && in[1] == '\0')
+	|| (in[0] == '.' && in[1] == '.' && in[2] == '\0'))
+	{
+	  in += (in[1] == '\0') ? 1 : 2;
+	}
+      else
+	{
+	  /* Move the first segment (with any leading '/') to the output.
+	   */
+	  do
+	    {
+	      *out++ = *in++;
+	    }
+	  while (*in != '\0' && *in != '/');
+	}
+    }
+  *out = '\0';
 }
 
 /*
@@ -1688,6 +1765,13 @@ static NSUInteger	urlAlign;
 	  l = strlen(myData->path);
           memcpy(tmp, myData->path, l + 1);
 	}
+    }
+
+  if (nil != _baseURL)
+    {
+      /* A path resolved against a base has its dot segments removed.
+       */
+      removeDotSegments(buf);
     }
 
   if (!withEscapes)
