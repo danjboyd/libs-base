@@ -3023,7 +3023,11 @@ GSICUStringMatchesRegex(NSString *string, NSString *regex, NSStringCompareOption
 // Macro for checking set related expressions
 #define CHECK_SETS \
 do { \
-  if ([rightValue isKindOfClass: [NSArray class]]) \
+  if ([rightValue isKindOfClass: [NSSet class]]) \
+    { \
+      rightSet = rightValue; \
+    } \
+  else if ([rightValue isKindOfClass: [NSArray class]]) \
     { \
       rightSet = [NSSet setWithArray: rightValue]; \
     } \
@@ -3032,7 +3036,11 @@ do { \
       [NSException raise: NSInvalidArgumentException \
 	          format: @"Can't evaluate set expression; right subexpression is not a set (lhs = %@ rhs = %@)", leftValue, rightValue]; \
     } \
-  if ([leftValue isKindOfClass: [NSArray class]]) \
+  if ([leftValue isKindOfClass: [NSSet class]]) \
+    { \
+      leftSet = leftValue; \
+    } \
+  else if ([leftValue isKindOfClass: [NSArray class]]) \
     { \
       leftSet = [NSSet setWithArray: leftValue]; \
     } \
