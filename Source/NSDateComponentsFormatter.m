@@ -29,6 +29,7 @@
 #import "Foundation/NSValue.h"
 #import "Foundation/NSException.h"
 #import "Foundation/NSNumberFormatter.h"
+#import "Foundation/NSCalendar.h"
 
 @implementation NSDateComponentsFormatter
 
@@ -155,306 +156,207 @@
   return result;
 }
 
+/* The units the formatter can show, largest first, with their labels
+ * for the abbreviated, short, full (singular and plural) and brief
+ * styles.  The spelled-out style uses the full labels.
+ */
+static struct {
+  NSCalendarUnit	unit;
+  NSString		*abbreviated;
+  NSString		*shortName;
+  NSString		*singular;
+  NSString		*plural;
+  NSString		*brief;
+} unitTable[] = {
+  { NSCalendarUnitYear, @"y", @"yr", @"year", @"years", @"yr" },
+  { NSCalendarUnitMonth, @"mo", @"mth", @"month", @"months", @"mth" },
+  { NSCalendarUnitWeekOfMonth, @"w", @"wk", @"week", @"weeks", @"wk" },
+  { NSCalendarUnitDay, @"d", @"day", @"day", @"days", @"day" },
+  { NSCalendarUnitHour, @"h", @"hr", @"hour", @"hours", @"hr" },
+  { NSCalendarUnitMinute, @"m", @"min", @"minute", @"minutes", @"min" },
+  { NSCalendarUnitSecond, @"s", @"sec", @"second", @"seconds", @"sec" },
+};
+#define	UNIT_COUNT	(sizeof(unitTable) / sizeof(unitTable[0]))
+
+static NSInteger
+componentValue(NSDateComponents *components, NSCalendarUnit unit)
+{
+  switch (unit)
+    {
+      case NSCalendarUnitYear: return [components year];
+      case NSCalendarUnitMonth: return [components month];
+      case NSCalendarUnitWeekOfMonth: return [components weekOfMonth];
+      case NSCalendarUnitDay: return [components day];
+      case NSCalendarUnitHour: return [components hour];
+      case NSCalendarUnitMinute: return [components minute];
+      case NSCalendarUnitSecond: return [components second];
+      default: return NSDateComponentUndefined;
+    }
+}
+
 - (NSString *) stringFromDateComponents: (NSDateComponents *)components
 {
-  NSString *result = @"";
+  NSUInteger		index[UNIT_COUNT];
+  NSInteger		value[UNIT_COUNT];
+  BOOL			keep[UNIT_COUNT];
+  NSUInteger		count = 0;
+  NSUInteger		i;
+  NSInteger		first = -1;
+  NSInteger		last = -1;
+  NSUInteger		kept;
+  NSUInteger		behavior = _zeroFormattingBehavior;
+  BOOL			positional;
+  NSMutableString	*result;
+  NSNumberFormatter	*speller = nil;
 
-  if (_allowedUnits & NSCalendarUnitYear)
+  if (nil == components)
     {
-      if (_unitsStyle == NSDateComponentsFormatterUnitsStyleSpellOut)
-        {
-          NSNumberFormatter *fmt = [[NSNumberFormatter alloc] init];
-          NSNumber *num = [NSNumber numberWithInteger: [components year]];
-          AUTORELEASE(fmt);
-          [fmt setNumberStyle: NSNumberFormatterSpellOutStyle];
-          result
-	    = [result stringByAppendingString: [fmt stringFromNumber: num]];
-          result = [result stringByAppendingString: @" years"];  
-        }
-      else
-        {
-          if (_zeroFormattingBehavior
-	    & NSDateComponentsFormatterZeroFormattingBehaviorDefault)
-            {
-              NSString *s;
-
-              s = [NSString stringWithFormat: @"%4ld", (long)[components year]];
-              result = [result stringByAppendingString: s];
-            }
-          
-          if (_unitsStyle == NSDateComponentsFormatterUnitsStylePositional)
-            {
-              result = [result stringByAppendingString: @" yr "];
-            }
-          else if (_unitsStyle
-	    == NSDateComponentsFormatterUnitsStyleAbbreviated)
-            {
-              result = [result stringByAppendingString: @" yr "];
-            }
-          else if (_unitsStyle == NSDateComponentsFormatterUnitsStyleShort)
-            {
-              result = [result stringByAppendingString: @" yr "];
-            }
-          else if (_unitsStyle == NSDateComponentsFormatterUnitsStyleFull)
-            {
-              result = [result stringByAppendingString: @" years "];
-            }
-        }
+      return nil;
     }
-  if (_allowedUnits & NSCalendarUnitMonth)
+  positional = (_unitsStyle == NSDateComponentsFormatterUnitsStylePositional);
+  if (behavior & NSDateComponentsFormatterZeroFormattingBehaviorDefault)
     {
-      if (_unitsStyle == NSDateComponentsFormatterUnitsStyleSpellOut)
-        {
-          NSNumberFormatter *fmt = [[NSNumberFormatter alloc] init];
-          NSNumber *num = [NSNumber numberWithInteger: [components month]];
-          AUTORELEASE(fmt);
-          [fmt setNumberStyle: NSNumberFormatterSpellOutStyle];
-          result
-	    = [result stringByAppendingString: [fmt stringFromNumber: num]];
-          result = [result stringByAppendingString: @" months "];  
-        }
-      else
-        {
-          if (_zeroFormattingBehavior
-	    & NSDateComponentsFormatterZeroFormattingBehaviorDefault)
-            {
-              NSString *s;
-
-              s = [NSString stringWithFormat: @"%2ld", (long)[components month]];
-              result = [result stringByAppendingString: s];
-            }
-
-          if (_unitsStyle == NSDateComponentsFormatterUnitsStylePositional)
-            {
-              result = [result stringByAppendingString: @" "];
-            }
-          else if (_unitsStyle
-	    == NSDateComponentsFormatterUnitsStyleAbbreviated)
-            {
-              result = [result stringByAppendingString: @" mn "];
-            }
-          else if (_unitsStyle == NSDateComponentsFormatterUnitsStyleShort)
-            {
-              result = [result stringByAppendingString: @" mon "];
-            }
-          else if (_unitsStyle == NSDateComponentsFormatterUnitsStyleFull)
-            {
-              result = [result stringByAppendingString: @" months "];
-            }
-        }
+      /* Positional fields drop leading zeros only; the other styles
+       * drop every zero unit.
+       */
+      behavior |= positional
+	? NSDateComponentsFormatterZeroFormattingBehaviorDropLeading
+	: NSDateComponentsFormatterZeroFormattingBehaviorDropAll;
     }
-  if (_allowedUnits & NSCalendarUnitDay)
+
+  /* The allowed units that the components define, largest first.
+   */
+  for (i = 0; i < UNIT_COUNT; i++)
     {
-      if (_unitsStyle == NSDateComponentsFormatterUnitsStyleSpellOut)
-        {
-          NSNumberFormatter *fmt = [[NSNumberFormatter alloc] init];
-          NSNumber *num = [NSNumber numberWithInteger: [components day]];
-          AUTORELEASE(fmt);
-          [fmt setNumberStyle: NSNumberFormatterSpellOutStyle];
-          result
-	    = [result stringByAppendingString: [fmt stringFromNumber: num]];
-          result = [result stringByAppendingString: @" days "];  
-        }
-      else
-        {
-          if (_zeroFormattingBehavior
-	    & NSDateComponentsFormatterZeroFormattingBehaviorDefault)
-            {
-              NSString *s;
+      NSInteger	v;
 
-              s = [NSString stringWithFormat: @"%2ld", (long)[components day]];
-              result = [result stringByAppendingString: s];
-            }
-
-          if (_unitsStyle == NSDateComponentsFormatterUnitsStylePositional)
-            {
-              result = [result stringByAppendingString: @" "];
-            }
-          else if (_unitsStyle
-	    == NSDateComponentsFormatterUnitsStyleAbbreviated)
-            {
-              result = [result stringByAppendingString: @" d "];
-            }
-          else if (_unitsStyle == NSDateComponentsFormatterUnitsStyleShort)
-            {
-              result = [result stringByAppendingString: @" day "];
-            }
-          else if (_unitsStyle == NSDateComponentsFormatterUnitsStyleFull)
-            {
-              result = [result stringByAppendingString: @" days "];
-            }
-        }
+      if ((_allowedUnits & unitTable[i].unit) == 0)
+	{
+	  continue;
+	}
+      v = componentValue(components, unitTable[i].unit);
+      if (NSDateComponentUndefined == v)
+	{
+	  continue;
+	}
+      index[count] = i;
+      value[count] = v;
+      if (v != 0)
+	{
+	  if (first < 0)
+	    {
+	      first = count;
+	    }
+	  last = count;
+	}
+      count++;
     }
-  if (_allowedUnits & NSCalendarUnitHour)
+  if (0 == count)
     {
-      if (_unitsStyle == NSDateComponentsFormatterUnitsStyleSpellOut)
-        {
-          NSNumberFormatter *fmt = [[NSNumberFormatter alloc] init];
-          NSNumber *num = [NSNumber numberWithInteger: [components hour]];
-          AUTORELEASE(fmt);
-          [fmt setNumberStyle: NSNumberFormatterSpellOutStyle];
-          result
-	    = [result stringByAppendingString: [fmt stringFromNumber: num]];
-          result = [result stringByAppendingString: @" hours "];  
-        }
-      else
-        {
-          if (_zeroFormattingBehavior
-	    & NSDateComponentsFormatterZeroFormattingBehaviorDefault)
-            {
-              NSString *s;
-
-              s = [NSString stringWithFormat: @"%2ld", (long)[components hour]];
-              result = [result stringByAppendingString: s];
-            }
-
-          if (_unitsStyle == NSDateComponentsFormatterUnitsStylePositional)
-            {
-              result = [result stringByAppendingString: @" "];
-            }
-          else if (_unitsStyle
-	    == NSDateComponentsFormatterUnitsStyleAbbreviated)
-            {
-              result = [result stringByAppendingString: @" h "];
-            }
-          else if (_unitsStyle == NSDateComponentsFormatterUnitsStyleShort)
-            {
-              result = [result stringByAppendingString: @" hrs "];
-            }
-          else if (_unitsStyle == NSDateComponentsFormatterUnitsStyleFull)
-            {
-              result = [result stringByAppendingString: @" hours "];
-            }
-        }
+      return @"";
     }
-  if (_allowedUnits & NSCalendarUnitMinute)
+
+  /* Drop zero units as the zero formatting behavior asks, but keep the
+   * smallest unit when every unit is zero.
+   */
+  for (i = 0; i < count; i++)
     {
-      if (_unitsStyle == NSDateComponentsFormatterUnitsStyleSpellOut)
-        {
-          NSNumberFormatter *fmt = [[NSNumberFormatter alloc] init];
-          NSNumber *num = [NSNumber numberWithInteger: [components minute]];
-          AUTORELEASE(fmt);
-          [fmt setNumberStyle: NSNumberFormatterSpellOutStyle];
-          result
-	    = [result stringByAppendingString: [fmt stringFromNumber: num]];
-          result = [result stringByAppendingString: @" minutes "];  
-        }
+      keep[i] = YES;
+      if (value[i] != 0)
+	{
+	  continue;
+	}
+      if (first < 0)
+	{
+	  if (i + 1 < count && (behavior
+	    & NSDateComponentsFormatterZeroFormattingBehaviorDropAll))
+	    {
+	      keep[i] = NO;
+	    }
+	}
+      else if ((NSInteger)i < first)
+	{
+	  keep[i] = (behavior
+	    & NSDateComponentsFormatterZeroFormattingBehaviorDropLeading) == 0;
+	}
+      else if ((NSInteger)i > last)
+	{
+	  keep[i] = (behavior
+	    & NSDateComponentsFormatterZeroFormattingBehaviorDropTrailing) == 0;
+	}
       else
-        {
-          if (_zeroFormattingBehavior
-	    & NSDateComponentsFormatterZeroFormattingBehaviorDefault)
-            {
-              NSString *s;
-
-              s = [NSString stringWithFormat: @"%2ld", (long)[components minute]];
-              result = [result stringByAppendingString: s];
-            }
-
-          if (_unitsStyle == NSDateComponentsFormatterUnitsStylePositional)
-            {
-              result = [result stringByAppendingString: @" "];
-            }
-          else if (_unitsStyle
-	    == NSDateComponentsFormatterUnitsStyleAbbreviated)
-            {
-              result = [result stringByAppendingString: @" min "];
-            }
-          else if (_unitsStyle == NSDateComponentsFormatterUnitsStyleShort)
-            {
-              result = [result stringByAppendingString: @" mins "];
-            }
-          else if (_unitsStyle == NSDateComponentsFormatterUnitsStyleFull)
-            {
-              result = [result stringByAppendingString: @" minutes "];
-            }
-        }
+	{
+	  keep[i] = (behavior
+	    & NSDateComponentsFormatterZeroFormattingBehaviorDropMiddle) == 0;
+	}
     }
-  if (_allowedUnits & NSCalendarUnitSecond)
+
+  if (_unitsStyle == NSDateComponentsFormatterUnitsStyleSpellOut)
     {
-      if (_unitsStyle == NSDateComponentsFormatterUnitsStyleSpellOut)
-        {
-          NSNumberFormatter *fmt = [[NSNumberFormatter alloc] init];
-          NSNumber *num = [NSNumber numberWithInteger: [components second]];
-          AUTORELEASE(fmt);
-          [fmt setNumberStyle: NSNumberFormatterSpellOutStyle];
-          result
-	    = [result stringByAppendingString: [fmt stringFromNumber: num]];
-          result = [result stringByAppendingString: @" seconds "];  
-        }
-      else
-        {
-          if (_zeroFormattingBehavior
-	    & NSDateComponentsFormatterZeroFormattingBehaviorDefault)
-            {
-              NSString *s;
-
-              s = [NSString stringWithFormat: @"%2ld", (long)[components second]];
-              result = [result stringByAppendingString: s];
-            }
-
-          if (_unitsStyle == NSDateComponentsFormatterUnitsStylePositional)
-            {
-              result = [result stringByAppendingString: @" "];
-            }
-          else if (_unitsStyle
-	    == NSDateComponentsFormatterUnitsStyleAbbreviated)
-            {
-              result = [result stringByAppendingString: @" s "];
-            }
-          else if (_unitsStyle == NSDateComponentsFormatterUnitsStyleShort)
-            {
-              result = [result stringByAppendingString: @" secs "];
-            }
-          else if (_unitsStyle == NSDateComponentsFormatterUnitsStyleFull)
-            {
-              result = [result stringByAppendingString: @" seconds "];
-            }
-        }
+      speller = AUTORELEASE([NSNumberFormatter new]);
+      [speller setNumberStyle: NSNumberFormatterSpellOutStyle];
     }
-  if (_allowedUnits & NSCalendarUnitWeekOfMonth)
+  result = [NSMutableString string];
+  kept = 0;
+  for (i = 0; i < count; i++)
     {
-      if (_unitsStyle == NSDateComponentsFormatterUnitsStyleSpellOut)
-        {
-          NSNumberFormatter *fmt;
-          NSNumber *num;
+      NSUInteger	u = index[i];
+      NSInteger		v = value[i];
 
-          fmt = AUTORELEASE([[NSNumberFormatter alloc] init]);
-          num = [NSNumber numberWithInteger: [components weekOfMonth]];
-          [fmt setNumberStyle: NSNumberFormatterSpellOutStyle];
-          result
-	    = [result stringByAppendingString: [fmt stringFromNumber: num]];
-          result = [result stringByAppendingString: @" days "];  
-        }
+      if (keep[i] == NO)
+	{
+	  continue;
+	}
+      if (_maximumUnitCount > 0 && kept == (NSUInteger)_maximumUnitCount)
+	{
+	  break;
+	}
+      if (positional)
+	{
+	  if (0 == kept && (behavior
+	    & NSDateComponentsFormatterZeroFormattingBehaviorPad) == 0)
+	    {
+	      [result appendFormat: @"%ld", (long)v];
+	    }
+	  else
+	    {
+	      [result appendFormat: (0 == kept) ? @"%02ld" : @":%02ld",
+		(long)v];
+	    }
+	}
       else
-        {
-          if (_zeroFormattingBehavior
-	    & NSDateComponentsFormatterZeroFormattingBehaviorDefault)
-            {
-	      long	wom = (long)[components weekOfMonth];
-              NSString *s = [NSString stringWithFormat: @"%2ld", wom];
-              result = [result stringByAppendingString: s];
-            }
+	{
+	  NSString	*plural;
 
-          if (_unitsStyle == NSDateComponentsFormatterUnitsStylePositional)
-            {
-              result = [result stringByAppendingString: @" "];
-            }
-          else if (_unitsStyle
-	    == NSDateComponentsFormatterUnitsStyleAbbreviated)
-            {
-              result = [result stringByAppendingString: @" wm "];
-            }
-          else if (_unitsStyle == NSDateComponentsFormatterUnitsStyleShort)
-            {
-              result = [result stringByAppendingString: @" wom "];
-            }
-          else if (_unitsStyle == NSDateComponentsFormatterUnitsStyleFull)
-            {
-              result = [result stringByAppendingString: @" week of month "];
-            }
-        }
+	  plural = (v == 1 || v == -1)
+	    ? unitTable[u].singular : unitTable[u].plural;
+	  switch (_unitsStyle)
+	    {
+	      case NSDateComponentsFormatterUnitsStyleAbbreviated:
+		[result appendFormat: @"%@%ld%@", (kept ? @" " : @""),
+		  (long)v, unitTable[u].abbreviated];
+		break;
+	      case NSDateComponentsFormatterUnitsStyleBrief:
+		[result appendFormat: @"%@%ld%@", (kept ? @" " : @""),
+		  (long)v, unitTable[u].brief];
+		break;
+	      case NSDateComponentsFormatterUnitsStyleShort:
+		[result appendFormat: @"%@%ld %@", (kept ? @", " : @""),
+		  (long)v, unitTable[u].shortName];
+		break;
+	      case NSDateComponentsFormatterUnitsStyleSpellOut:
+		[result appendFormat: @"%@%@ %@", (kept ? @", " : @""),
+		  [speller stringFromNumber: [NSNumber numberWithInteger: v]],
+		  plural];
+		break;
+	      default:
+		[result appendFormat: @"%@%ld %@", (kept ? @", " : @""),
+		  (long)v, plural];
+		break;
+	    }
+	}
+      kept++;
     }
-  
   return result;
 }
 
