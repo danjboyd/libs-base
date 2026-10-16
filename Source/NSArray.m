@@ -2058,12 +2058,16 @@ compare(id elem1, id elem2, void* context)
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
   NSUInteger		index = [[self objectsAtIndexes: indexSet]
-			       indexOfObjectWithOptions: 0
+			       indexOfObjectWithOptions: opts
 					    passingTest: predicate];
 #pragma GCC diagnostic pop
   NSUInteger		count = [indexSet count];
   NSUInteger		indexArray[count];
 
+  if (NSNotFound == index)
+    {
+      return NSNotFound;
+    }
   [indexSet getIndexes: indexArray
 	      maxCount: count
 	  inIndexRange: NULL];
