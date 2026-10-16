@@ -849,13 +849,15 @@ ihandler(int sig)
 
   /*
    *	Now perform the actual posting of the notification to the observers in
-   *	our array.
+   *	our array.  An observer that asked for immediate delivery is posted to
+   *	even while its client is suspended.
    */
   for (pos = [observers count]; pos > 0; pos--)
     {
       GDNCObserver	*obs = [observers objectAtIndex: pos - 1];
 
-      if (obs->client->suspended == NO || deliverImmediately == YES)
+      if (obs->client->suspended == NO || deliverImmediately == YES
+	|| obs->behavior == NSNotificationSuspensionBehaviorDeliverImmediately)
 	{
 	  /*
 	   *	Post notifications to the observer until:
