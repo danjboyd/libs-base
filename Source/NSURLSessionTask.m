@@ -1308,6 +1308,16 @@ write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
 /* The delegate replies to URLSession:taskNeedsNewBodyStream: here. */
 - (void) resumeWithBodyStream: (NSInputStream *)bodyStream
 {
+  /* The transfer was paused on the work thread, so it has to be resumed
+   * there; libcurl does not resume it from the delegate's thread. */
+  [internal->_session _performSelectorOnWorkThread:
+    @selector(_workResumeWithBodyStream:)
+				  target: self
+			      withObject: bodyStream];
+}
+
+- (void) _workResumeWithBodyStream: (NSInputStream *)bodyStream
+{
   if (nil != bodyStream)
     {
       [internal->_taskData setObject: bodyStream forKey: taskInputStreamKey];
