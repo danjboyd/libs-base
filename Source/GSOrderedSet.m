@@ -310,8 +310,11 @@ static Class	mutableSetClass;
   GSIArrayItem item = GSIArrayItemAtIndex(&array, index);
 
   _version++;
-  GSIArrayRemoveItemAtIndex(&array, index);
+  /* The array holds the set's only retain of the object, so remove the
+   * object from the map, which hashes it, before the array releases it.
+   */
   GSIMapRemoveKey(&map, (GSIMapKey)item.obj);
+  GSIArrayRemoveItemAtIndex(&array, index);
   _version++;
 }
 

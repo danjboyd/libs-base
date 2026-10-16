@@ -1532,14 +1532,26 @@ static SEL	remSel;
                          count: (NSUInteger)count
 {
   id o = nil;
-  NSUInteger i = count;
+  NSUInteger i;
 
+  /* The objects may be ones in aRange (as when sorting), which removing
+   * the range would deallocate, so keep them while they are inserted.
+   */
+  for (i = 0; i < count; i++)
+    {
+      RETAIN(objects[i]);
+    }
   [self removeObjectsInRange: aRange];
 
+  i = count;
   while (i-- > 0)
     {
       o = objects[i];
       [self insertObject: o atIndex: aRange.location];
+    }
+  for (i = 0; i < count; i++)
+    {
+      RELEASE(objects[i]);
     }
 }
 
