@@ -910,7 +910,25 @@ static gs_mutex_t       classLock = GS_MUTEX_INIT_STATIC;
 
   if (directory == NSItemReplacementDirectory)
     {
-      path = NSTemporaryDirectory();
+      NSDictionary	*attributes;
+
+      /* A new, private directory for the caller to save into and remove
+       * when done, whether or not shouldCreate is set.  The name is unique,
+       * so creating it fails rather than reusing another directory.
+       */
+      path = [NSTemporaryDirectory() stringByAppendingPathComponent:
+	[[NSProcessInfo processInfo] globallyUniqueString]];
+      attributes = [NSDictionary dictionaryWithObject:
+	[NSNumber numberWithUnsignedLong: 0700]
+	forKey: NSFilePosixPermissions];
+      if (NO == [self createDirectoryAtPath: path
+		withIntermediateDirectories: NO
+				 attributes: attributes
+				      error: error])
+	{
+	  return nil;
+	}
+      return [NSURL fileURLWithPath: path isDirectory: YES];
     }
   else
     {
