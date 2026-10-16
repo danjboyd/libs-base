@@ -427,7 +427,7 @@ static SEL	remSel;
 	  }
       }
   }
-  self = [self initWithObjects: objs count: count];
+  self = [self initWithObjects: objs count: j];
 
   if (flag == YES)
     {
@@ -541,7 +541,7 @@ static SEL	remSel;
     }
   GS_END_FOR(other)
 
-  self = [self initWithObjects: os count: c];
+  self = [self initWithObjects: os count: j];
   if (flag)
     {
       while (j--)
