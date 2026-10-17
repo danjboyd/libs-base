@@ -2950,8 +2950,36 @@ checkPL(id aPropertyList, NSPropertyListFormat aFormat)
                        format: (NSPropertyListFormat*)aFormat
                         error: (out NSError**)error
 {
-  // FIXME
-  return nil;
+  NSMutableData	*data = [NSMutableData data];
+  uint8_t	buffer[BUFSIZ];
+  NSInteger	length;
+
+  /* Read the stream to its end and parse what it held.
+   */
+  if ([stream streamStatus] == NSStreamStatusNotOpen)
+    {
+      [stream open];
+    }
+  while ((length = [stream read: buffer maxLength: sizeof(buffer)]) > 0)
+    {
+      [data appendBytes: buffer length: length];
+    }
+  if (length < 0)
+    {
+      if (error != NULL)
+        {
+          NSError	*streamError = [stream streamError];
+
+          *error = (streamError != nil) ? streamError
+            : create_error(NSPropertyListReadStreamError,
+              @"The stream could not be read");
+        }
+      return nil;
+    }
+  return [self propertyListWithData: data
+                            options: anOption
+                             format: aFormat
+                              error: error];
 }
 
 + (NSInteger) writePropertyList: (id)aPropertyList
