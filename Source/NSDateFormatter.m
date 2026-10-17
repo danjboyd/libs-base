@@ -38,6 +38,8 @@
 #import "Foundation/NSArray.h"
 #import "Foundation/NSDate.h"
 #import "Foundation/NSDictionary.h"
+#import "Foundation/NSError.h"
+#import "Foundation/FoundationErrors.h"
 #import "Foundation/NSCalendar.h"
 #import "Foundation/NSCalendarDate.h"
 #import "Foundation/NSLocale.h"
@@ -449,7 +451,68 @@ static NSDateFormatterBehavior _defaultBehavior = 0;
                   range: (inout NSRange*) range
                   error: (out NSError **) error
 {
-  return NO; // FIXME
+  NSRange	r;
+  id		value = nil;
+  NSUInteger	parsed = 0;
+
+  r = (range != NULL) ? *range : NSMakeRange(0, [string length]);
+#if GS_USE_ICU == 1
+  if (internal->_behavior != NSDateFormatterBehavior10_0
+    && internal->_formatter != NULL)
+    {
+      UChar	*text;
+      UDate	date;
+      UErrorCode err = U_ZERO_ERROR;
+      int32_t	pPos = 0;
+
+      text = malloc(sizeof(UChar) * (r.length + 1));
+      if (text != NULL)
+        {
+          [string getCharacters: text range: r];
+          date = udat_parse(internal->_formatter, text, (int32_t)r.length,
+            &pPos, &err);
+          if (U_SUCCESS(err) && pPos > 0)
+            {
+              value = [NSDate dateWithTimeIntervalSince1970:
+                (NSTimeInterval)(date / 1000.0)];
+              parsed = (NSUInteger)pPos;
+            }
+          free(text);
+        }
+    }
+  else
+#endif
+  if ([self getObjectValue: &value
+                 forString: [string substringWithRange: r]
+          errorDescription: NULL] == YES && value != nil)
+    {
+      parsed = r.length;
+    }
+
+  if (value == nil)
+    {
+      if (error != NULL)
+        {
+          NSDictionary	*info;
+
+          info = [NSDictionary dictionaryWithObject:
+            @"The value is not a valid date."
+            forKey: NSLocalizedDescriptionKey];
+          *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                       code: NSFormattingError
+                                   userInfo: info];
+        }
+      return NO;
+    }
+  if (obj != NULL)
+    {
+      *obj = value;
+    }
+  if (range != NULL)
+    {
+      range->length = parsed;
+    }
+  return YES;
 }
 
 - (void) setDateFormat: (NSString*)string
