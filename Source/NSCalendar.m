@@ -918,11 +918,85 @@ do \
   return result;
 }
 
+#if GS_USE_ICU == 1
+/* The rank of a unit by length, or 0 for a unit ordinality cannot use. */
+static int
+_NSOrdinalityRank(NSCalendarUnit unit)
+{
+  switch (unit)
+    {
+      case NSCalendarUnitSecond:	return 1;
+      case NSCalendarUnitMinute:	return 2;
+      case NSCalendarUnitHour:		return 3;
+      case NSCalendarUnitDay:
+      case NSCalendarUnitWeekday:	return 4;
+      case NSCalendarUnitWeekOfMonth:
+      case NSCalendarUnitWeekOfYear:	return 5;
+      case NSCalendarUnitMonth:		return 6;
+      case NSCalendarUnitYear:		return 7;
+      default:				return 0;
+    }
+}
+#endif
+
 - (NSUInteger) ordinalityOfUnit: (NSCalendarUnit) smaller
                          inUnit: (NSCalendarUnit) larger
                         forDate: (NSDate*) date
 {
-  return 0;
+#if GS_USE_ICU == 1
+  UErrorCode		err = U_ZERO_ERROR;
+  UCalendarDateFields	field;
+  NSDate		*start;
+  int32_t		count;
+  int			smallerRank = _NSOrdinalityRank(smaller);
+  int			largerRank = _NSOrdinalityRank(larger);
+
+  if (date == nil || smallerRank == 0 || largerRank <= smallerRank)
+    {
+      return NSNotFound;
+    }
+
+  /* Weeks are numbered as the calendar numbers them, so a partial first
+   * week counts as the first.
+   */
+  if (smallerRank == 5)
+    {
+      field = (larger == NSCalendarUnitMonth)
+        ? UCAL_WEEK_OF_MONTH : UCAL_WEEK_OF_YEAR;
+      [self _resetCalendar];
+      ucal_setMillis(my->cal,
+        (UDate)floor([date timeIntervalSince1970] * 1000.0), &err);
+      count = ucal_get(my->cal, field, &err);
+      return U_FAILURE(err) ? NSNotFound : (NSUInteger)count;
+    }
+
+  /* Otherwise count the whole smaller units from the start of the larger
+   * unit to the date; the date is in the one after them.
+   */
+  if ([self rangeOfUnit: larger
+              startDate: &start
+               interval: NULL
+                forDate: date] == NO)
+    {
+      return NSNotFound;
+    }
+  switch (smallerRank)
+    {
+      case 1:	field = UCAL_SECOND;		break;
+      case 2:	field = UCAL_MINUTE;		break;
+      case 3:	field = UCAL_HOUR_OF_DAY;	break;
+      case 4:	field = UCAL_DAY_OF_MONTH;	break;
+      default:	field = UCAL_MONTH;		break;
+    }
+  [self _resetCalendar];
+  ucal_setMillis(my->cal,
+    (UDate)floor([start timeIntervalSince1970] * 1000.0), &err);
+  count = ucal_getFieldDifference(my->cal,
+    (UDate)floor([date timeIntervalSince1970] * 1000.0), field, &err);
+  return U_FAILURE(err) ? NSNotFound : (NSUInteger)count + 1;
+#else
+  return NSNotFound;
+#endif
 }
 
 - (NSRange) rangeOfUnit: (NSCalendarUnit) smaller
