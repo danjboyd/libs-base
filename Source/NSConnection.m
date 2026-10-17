@@ -571,12 +571,38 @@ static NSLock	*cached_proxies_gate = nil;
   return con;
 }
 
+/* The key of the conversation in the dictionary of a thread handling a
+ * request.
+ */
+static NSString	*currentConversationKey = @"NSConnectionCurrentConversation";
+
+/* Restore the conversation a thread was handling, releasing it.
+ */
+static void
+setCurrentConversation(NSMutableDictionary *d, id conversation)
+{
+  if (conversation == nil)
+    {
+      [d removeObjectForKey: currentConversationKey];
+    }
+  else
+    {
+      [d setObject: conversation forKey: currentConversationKey];
+      RELEASE(conversation);
+    }
+}
+
 /**
- * Return the current conversation ... not implemented in GNUstep
+ * Returns the conversation of the request the current thread is handling,
+ * or nil when it is not handling one.  GNUstep does not pass conversations
+ * between processes, so a conversation is identified by the connection that
+ * delivered the request: requests nested within it on that connection share
+ * it.
  */
 + (id) currentConversation
 {
-  return nil;
+  return [[[NSThread currentThread] threadDictionary]
+    objectForKey: currentConversationKey];
 }
 
 /**
@@ -2737,8 +2763,26 @@ static NSLock	*cached_proxies_gate = nil;
 	selector ? sel_getName(selector) : "nil",
 	target, target ? class_getName([target class]) : "nil");
 
-      /* Invoke the method! */
-      [inv invoke];
+      /* Invoke the method in the conversation of this connection.
+       */
+      {
+	NSMutableDictionary	*d = [[NSThread currentThread] threadDictionary];
+	id			previous;
+
+	previous = RETAIN([d objectForKey: currentConversationKey]);
+	[d setObject: self forKey: currentConversationKey];
+	NS_DURING
+	  {
+	    [inv invoke];
+	  }
+	NS_HANDLER
+	  {
+	    setCurrentConversation(d, previous);
+	    [localException raise];
+	  }
+	NS_ENDHANDLER
+	setCurrentConversation(d, previous);
+      }
 
       if (YES == is_async)
         {
