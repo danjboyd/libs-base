@@ -118,6 +118,7 @@
 #import "Foundation/NSAutoreleasePool.h"
 #import "Foundation/NSHost.h"
 #import "Foundation/NSLock.h"
+#import "Foundation/NSThread.h"
 #import "GNUstepBase/NSProcessInfo+GNUstepBase.h"
 #import "GNUstepBase/NSString+GNUstepBase.h"
 
@@ -156,6 +157,10 @@ For more detailed assistance, please report the error to bug-gnustep@gnu.org.\n\
 
 @interface      NSHost (NSProcessInfo)
 + (NSString*) _myHostName;
+@end
+
+@interface      NSProcessInfo (Private)
+- (void) _performExpiringActivity: (id)block;
 @end
 
 /*************************************************************************
@@ -1563,16 +1568,17 @@ static void determineOperatingSystem()
   return;
 }
 
+/* No activity changes how this process is scheduled or when the system
+ * sleeps, so an activity token only identifies the activity until it ends.
+ */
 - (id) beginActivityWithOptions: (NSActivityOptions)options
                          reason: (NSString *)reason
 {
-  // FIXME: unimplemented
-  return nil;
+  return AUTORELEASE([NSObject new]);
 }
 
 - (void) endActivity:(id<NSObject>)activity
 {
-  // FIXME: unimplemented
   return;
 }
 
@@ -1580,15 +1586,35 @@ static void determineOperatingSystem()
                             reason: (NSString *)reason
                         usingBlock: (GSPerformActivityBlock)block
 {
-  // FIXME: unimplemented
-  return;
+  id	activity = [self beginActivityWithOptions: options reason: reason];
+
+  CALL_BLOCK_NO_ARGS(block);
+  [self endActivity: activity];
 }
 
+/* Nothing ever asks this process to stop early, so the block runs once, in
+ * the background, and is never told that its activity has expired.
+ */
 - (void) performExpiringActivityWithReason: (NSString *)reason
 		usingBlock: (GSPerformExpiringActivityBlock)block
 {
-  // FIXME: unimplemented
-  return;
+  if (block != NULL)
+    {
+      GSPerformExpiringActivityBlock	copy = Block_copy(block);
+
+      [NSThread detachNewThreadSelector: @selector(_performExpiringActivity:)
+			       toTarget: self
+			     withObject: (id)copy];
+      Block_release(copy);
+    }
+}
+
+- (void) _performExpiringActivity: (id)block
+{
+  NSAutoreleasePool	*arp = [NSAutoreleasePool new];
+
+  CALL_NON_NULL_BLOCK(((GSPerformExpiringActivityBlock)block), NO);
+  [arp release];
 }
 
 @end
