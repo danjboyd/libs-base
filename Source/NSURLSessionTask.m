@@ -155,6 +155,7 @@ static SEL didReceiveResponseSel;
 static SEL didCompleteWithErrorSel;
 static SEL didFinishDownloadingToURLSel;
 static SEL didWriteDataSel;
+static SEL didSendBodyDataSel;
 static SEL needNewBodyStreamSel;
 static SEL willPerformHTTPRedirectionSel;
 
@@ -376,6 +377,7 @@ progress_callback(void *clientp, curl_off_t dltotal, curl_off_t dlnow,
   curl_off_t ultotal, curl_off_t ulnow)
 {
   NSURLSessionTask	*task = clientp;
+  int64_t		previouslySent;
 
   /* Returning -1 from this callback makes libcurl abort the transfer and return
    * CURLE_ABORTED_BY_CALLBACK.
@@ -383,6 +385,33 @@ progress_callback(void *clientp, curl_off_t dltotal, curl_off_t dlnow,
   if (YES == [task _shouldStopTransfer])
     {
       return -1;
+    }
+
+  /* Tell the delegate about the body bytes sent since the last report.
+   */
+  previouslySent = [task countOfBytesSent];
+  if (ulnow > previouslySent
+    && ([task _properties] & GSURLSessionUpdatesDelegate))
+    {
+      id	delegate = [task delegate];
+
+      if ([delegate respondsToSelector: didSendBodyDataSel])
+        {
+          NSURLSession	*session = [task _session];
+          NSInvocation	*inv;
+          int64_t	bytesSent = ulnow - previouslySent;
+          int64_t	totalBytesSent = ulnow;
+          int64_t	totalBytesExpectedToSend = (ultotal > 0)
+            ? ultotal : NSURLSessionTransferSizeUnknown;
+
+          inv = GSURLSessionInvocation(delegate, didSendBodyDataSel);
+          [inv setArgument: &session atIndex: 2];
+          [inv setArgument: &task atIndex: 3];
+          [inv setArgument: &bytesSent atIndex: 4];
+          [inv setArgument: &totalBytesSent atIndex: 5];
+          [inv setArgument: &totalBytesExpectedToSend atIndex: 6];
+          [session _enqueueDelegateInvocation: inv];
+        }
     }
 
   [task _setCountOfBytesReceived: dlnow];
@@ -976,6 +1005,8 @@ write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
   didWriteDataSel = @selector
     (URLSession:
      downloadTask:didWriteData:totalBytesWritten:totalBytesExpectedToWrite:);
+  didSendBodyDataSel = @selector
+    (URLSession:task:didSendBodyData:totalBytesSent:totalBytesExpectedToSend:);
   taskNeedsNewBodyStreamSel = @selector(URLSession:taskNeedsNewBodyStream:);
   willRedirectSel = @selector
     (URLSession:task:willRedirectToResponse:newRequest:);
