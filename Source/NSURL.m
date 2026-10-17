@@ -75,6 +75,7 @@ function may be incorrect
 #import "Foundation/NSError.h"
 #import "Foundation/NSException.h"
 #import "Foundation/NSFileManager.h"
+#import "Foundation/FoundationErrors.h"
 #import "Foundation/NSLock.h"
 #import "Foundation/NSMapTable.h"
 #import "Foundation/NSPortCoder.h"
@@ -800,8 +801,53 @@ static NSUInteger	urlAlign;
                             options: (NSURLBookmarkResolutionOptions)options 
                               error: (NSError**)error
 {
-  // TODO: unimplemented
-  return nil;
+  NSFileManager	*manager;
+  NSString	*path;
+  NSString	*destination;
+  BOOL		isDirectory = NO;
+  int		links = 0;
+
+  /* The only alias files on this platform are symbolic links: follow the
+   * links the URL names, but not those of its parent directories.
+   */
+  if ([url isFileURL] == NO)
+    {
+      return url;
+    }
+  manager = [NSFileManager defaultManager];
+  path = [url path];
+  if ([manager fileExistsAtPath: path isDirectory: &isDirectory] == NO)
+    {
+      if (error != NULL)
+        {
+          NSDictionary	*info;
+
+          info = [NSDictionary dictionaryWithObjectsAndKeys:
+            url, NSURLErrorKey,
+            path, NSFilePathErrorKey,
+            @"The file does not exist.", NSLocalizedDescriptionKey,
+            nil];
+          *error = [NSError errorWithDomain: NSCocoaErrorDomain
+                                       code: NSFileReadNoSuchFileError
+                                   userInfo: info];
+        }
+      return nil;
+    }
+  while (links++ < 32 && (destination
+    = [manager pathContentOfSymbolicLinkAtPath: path]) != nil)
+    {
+      if ([destination isAbsolutePath] == NO)
+        {
+          destination = [[path stringByDeletingLastPathComponent]
+            stringByAppendingPathComponent: destination];
+        }
+      path = destination;
+    }
+  if (path == [url path])
+    {
+      return url;
+    }
+  return [NSURL fileURLWithPath: path isDirectory: isDirectory];
 }
 
 - (id) init
