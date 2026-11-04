@@ -302,8 +302,15 @@ foundIgnorableWhitespace: (NSString *)string
 
       if ([value hasSuffix: @"Z"] == YES && [value length] == 20)
 	{
-	  result = [NSCalendarDate dateWithString: value
-				   calendarFormat: @"%Y-%m-%dT%H:%M:%SZ"];
+	  NSString	*utc;
+
+	  /* The Z says the time is UTC.  Matched as a literal it would leave
+	   * the time to be interpreted in the default time zone.
+	   */
+	  utc = [[value substringToIndex: 19]
+	    stringByAppendingString: @" +0000"];
+	  result = [NSCalendarDate dateWithString: utc
+				   calendarFormat: @"%Y-%m-%dT%H:%M:%S %z"];
 	}
       else
 	{
