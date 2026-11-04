@@ -1,3 +1,10 @@
+2026-11-04 Daniel Boyd <danieljboyd@icloud.com>
+
+	* Source/NSPropertyList.m:
+	* Tests/base/NSPropertyList/xmlDateTimeZone.m:
+	Read an XML plist date ending in Z as UTC, not in the default time
+	zone, so that a date survives being written and read back.
+
 2026-10-07 Richard Frith-Macdonald <rfm@gnu.org>
 
 	* Source/Additions/GSMime.m:
