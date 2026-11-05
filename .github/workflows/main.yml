@@ -14,9 +14,9 @@ on:
   workflow_dispatch:
     inputs:
       tools_make_branch:
-        description: "tools-make branch"
-        default: "master"
-        required: true
+        description: "tools-make commit or branch on the fork"
+        default: ""
+        required: false
       tools_windows_msvc_branch:
         description: "tools-windows-msvc branch (leave empty to use latest pre-built release)"
         required: false
