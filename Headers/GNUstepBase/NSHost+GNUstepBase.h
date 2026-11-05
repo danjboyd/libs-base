@@ -39,8 +39,9 @@ extern "C" {
 @class	NSThread;
 
 @interface NSHost (GNUstepBase)
-/** Performs an asynchronous lookup of the host name (using an operation queue)
- * and sends the response to the target object as a message with the specified
+/** Performs an asynchronous lookup of the host name (using c-ares if the
+ * library was built with it, then an operation queue if that finds nothing,
+ * or an operation queue alone otherwise) and sends the response to the target object as a message with the specified
  * selector (the single argument of the message is the result of the host
  * lookup).<br />
  * The result is sent to the target in the specified thread and using the
@@ -49,7 +50,12 @@ extern "C" {
  * which this method is called.<br />
  * If the modes argument is empty, NSDefaultRunLoopMode is used to deliver
  * the result.<br />
- * The target object is NOT retained.
+ * The target object is NOT retained.<br />
+ * A host found through c-ares has the names and addresses in the DNS answer,
+ * without those a reverse lookup of each address might add.<br />
+ * The GSHostResolverServers user default, a comma separated list of
+ * address[:port] entries, makes c-ares use those servers rather than the
+ * system's.  It is read when the first lookup is made.
  */
 + (void) lookupName: (NSString*)name
              thread: (NSThread*)thread

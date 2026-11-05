@@ -228,6 +228,9 @@
 /* Define to 1 if you have the <callback.h> header file. */
 #undef HAVE_CALLBACK_H
 
+/* Define if c-ares is available */
+#undef HAVE_CARES
+
 /* Define to 1 if you have the 'closefrom' function. */
 #undef HAVE_CLOSEFROM
 

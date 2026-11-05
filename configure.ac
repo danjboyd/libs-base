@@ -3703,6 +3703,32 @@ fi
 AC_SUBST(HAVE_LIBXML)
 
 #--------------------------------------------------------------------
+# Check for (optional) c-ares for asynchronous host name lookup.
+# See DEPENDENCIES POLICY at the start of this file.  Lookups work without
+# it, each in a thread of its own, so its absence doesn't stop the build.
+# Version 1.26.0 added the event thread that the code here relies on.
+#--------------------------------------------------------------------
+AC_ARG_ENABLE(cares,
+  [AS_HELP_STRING([--disable-cares],
+  [Disable use of c-ares for asynchronous host name lookup])],,
+  enable_cares=yes)
+
+HAVE_CARES=0
+
+if test $enable_cares = yes; then
+  PKG_CHECK_MODULES([CARES], [libcares >= 1.26.0], [
+    CPPFLAGS="$CPPFLAGS $CARES_CFLAGS"
+    INCLUDE_FLAGS="$INCLUDE_FLAGS $CARES_CFLAGS"
+    LIBS="$CARES_LIBS $LIBS"
+    HAVE_CARES=1
+    AC_DEFINE(HAVE_CARES,1,[Define if c-ares is available])
+  ], [
+    AC_MSG_NOTICE([c-ares 1.26.0 or later not found: host name lookups use threads.])
+  ])
+fi
+AC_SUBST(HAVE_CARES)
+
+#--------------------------------------------------------------------
 # Check recent libgnutls for SSL streams.
 # See DEPENDENCIES POLICY at the start of this file.
 #--------------------------------------------------------------------

@@ -94,6 +94,10 @@ extern int WSAAPI inet_pton(int , const char *, void *);
 #include <resolv.h>
 #endif
 
+#if	defined(HAVE_CARES)
+#include <ares.h>
+#endif
+
 #ifndef	INADDR_NONE
 #define	INADDR_NONE	-1
 #endif
@@ -320,8 +324,17 @@ etcHosts(BOOL flush)
 }
 #endif
 
+/* The object that asked for a lookup through +_resolveName:forLookup:
+ */
+@protocol	GSHostResolverClient
+- (void) resolvedHost: (NSHost*)host;
+@end
+
 @interface NSHost (Private)
 + (void) _cacheHost: (NSHost*)host forKey: (NSString*)key;
+- (id) _initWithKey: (NSString*)key
+	      names: (NSSet*)names
+	  addresses: (NSSet*)addresses;
 #if   defined(HAVE_GETHOSTBYNAME_R)
 - (void) _addEntry: (struct hostent*)entry
 	 withNames: (NSMutableSet*)names
@@ -351,7 +364,182 @@ etcHosts(BOOL flush)
 + (NSMutableSet*) _localAddresses;
 @end
 
+#if	defined(HAVE_CARES)
+/* All lookups share one channel, whose event thread does the waiting, so a
+ * lookup takes no thread of its own however long the servers take to answer.
+ * The channel lasts as long as the process.
+ */
+static ares_channel_t *
+resolverChannel(void)
+{
+  static ares_channel_t		*channel = NULL;
+  static BOOL			tried = NO;
+  ares_channel_t		*result;
+
+  [_hostCacheLock lock];
+  if (NO == tried)
+    {
+      tried = YES;
+      if (ares_threadsafety()
+	&& ARES_SUCCESS == ares_library_init(ARES_LIB_INIT_ALL))
+	{
+	  struct ares_options	options;
+	  ares_channel_t	*c = NULL;
+
+	  memset(&options, '\0', sizeof(options));
+	  options.evsys = ARES_EVSYS_DEFAULT;
+	  /* The event thread doesn't wake for a new query on a socket it is
+	   * already watching, so with nothing else pending that query would
+	   * never time out.  A new socket for each query does wake it.
+	   */
+	  options.udp_max_queries = 1;
+	  if (ARES_SUCCESS == ares_init_options(&c, &options,
+	    ARES_OPT_EVENT_THREAD | ARES_OPT_UDP_MAX_QUERIES))
+	    {
+	      NSString	*servers;
+
+	      servers = [[NSUserDefaults standardUserDefaults]
+		stringForKey: @"GSHostResolverServers"];
+	      if ([servers length] > 0
+		&& ARES_SUCCESS != ares_set_servers_ports_csv(c,
+		  [servers UTF8String]))
+		{
+		  NSLog(@"Ignoring bad GSHostResolverServers '%@'", servers);
+		}
+	      channel = c;
+	    }
+	}
+    }
+  result = channel;
+  [_hostCacheLock unlock];
+  return result;
+}
+
+/* Called in the channel's event thread, or in the thread which started the
+ * lookup if the channel can answer at once.
+ */
+static void
+resolverCallback(void *arg, int status, int timeouts,
+  struct ares_addrinfo *info)
+{
+  GSRegisterCurrentThread();
+  {
+  ENTER_POOL
+  NSArray		*a = (NSArray*)arg;
+  NSString		*name = [a objectAtIndex: 0];
+  id<GSHostResolverClient>	client = [a objectAtIndex: 1];
+  NSHost		*host = nil;
+
+  if (ARES_SUCCESS == status && info != NULL)
+    {
+      NSMutableSet		*names = [NSMutableSet set];
+      NSMutableSet		*addresses = [NSMutableSet set];
+      struct ares_addrinfo_cname	*cname;
+      struct ares_addrinfo_node		*node;
+
+      [names addObject: name];
+      if (info->name != NULL)
+	{
+	  [names addObject: [NSString stringWithUTF8String: info->name]];
+	}
+      for (cname = info->cnames; cname != NULL; cname = cname->next)
+	{
+	  if (cname->alias != NULL)
+	    {
+	      [names addObject: [NSString stringWithUTF8String: cname->alias]];
+	    }
+	  if (cname->name != NULL)
+	    {
+	      [names addObject: [NSString stringWithUTF8String: cname->name]];
+	    }
+	}
+      for (node = info->nodes; node != NULL; node = node->ai_next)
+	{
+	  char		buf[INET6_ADDRSTRLEN];
+	  const void	*address = NULL;
+
+	  if (AF_INET == node->ai_family)
+	    {
+	      address = &((struct sockaddr_in*)node->ai_addr)->sin_addr;
+	    }
+	  else if (AF_INET6 == node->ai_family)
+	    {
+	      address = &((struct sockaddr_in6*)node->ai_addr)->sin6_addr;
+	    }
+	  if (address != NULL
+	    && ares_inet_ntop(node->ai_family, address, buf, sizeof(buf)))
+	    {
+	      [addresses addObject: [NSString stringWithUTF8String: buf]];
+	    }
+	}
+      if ([addresses count] > 0)
+	{
+	  host = AUTORELEASE([[hostClass alloc] _initWithKey: name
+						       names: names
+						   addresses: addresses]);
+	}
+    }
+  if (info != NULL)
+    {
+      ares_freeaddrinfo(info);
+    }
+  NS_DURING
+    [client resolvedHost: host];
+  NS_HANDLER
+    NSLog(@"Problem handling the result of a host lookup: %@", localException);
+  NS_ENDHANDLER
+  RELEASE(a);
+  LEAVE_POOL
+  }
+}
+#endif
+
 @implementation NSHost (Private)
+
+- (id) _initWithKey: (NSString*)key
+	      names: (NSSet*)names
+	  addresses: (NSSet*)addresses
+{
+  if ((self = [super init]) != nil)
+    {
+      _names = [names copy];
+      _addresses = [addresses copy];
+      if (YES == _hostCacheEnabled)
+	{
+	  [hostClass _cacheHost: self forKey: key];
+	}
+    }
+  return self;
+}
+
+/* Starts a lookup of name through c-ares and answers YES if it did, in which
+ * case the client later gets -resolvedHost: with the host found, or nil for
+ * anything else.  c-ares reads neither nsswitch.conf nor its modules, so a
+ * client should take nil to mean that the system's own lookup must decide.
+ * Answers NO if c-ares isn't available or the name isn't one it can look up.
+ */
++ (BOOL) _resolveName: (NSString*)name forLookup: (id)client
+{
+#if	defined(HAVE_CARES)
+  ares_channel_t	*channel;
+  struct ares_addrinfo_hints	hints;
+
+  if ([name isEqualToString: localHostName]
+    || NULL == getName(name)
+    || NULL == (channel = resolverChannel()))
+    {
+      return NO;
+    }
+  memset(&hints, '\0', sizeof(hints));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_flags = ARES_AI_CANONNAME;
+  ares_getaddrinfo(channel, [name UTF8String], NULL, &hints, resolverCallback,
+    [[NSArray alloc] initWithObjects: name, client, nil]);
+  return YES;
+#else
+  return NO;
+#endif
+}
 
 + (void) _cacheHost: (NSHost*)host forKey: (NSString*)key
 {

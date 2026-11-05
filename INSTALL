@@ -43,6 +43,7 @@ higher.
    * openssl (OPTIONAL, not needed if you have gnutls)
    * libcurl (REQUIRED WHEN USING Objective-C 2.0 TOOLCHAIN)
    * libdispatch (RECOMMENDED)
+   * c-ares 1.26 or later (OPTIONAL, for asynchronous host name lookup)
 
    If you are installing the GNUstep libraries individually, make sure
 you have installed the GNUstep Makefile package (gnustep-make) already,

@@ -655,6 +655,9 @@ HAVE_GNUTLS
 TLS_LIBS
 TLS_CFLAGS
 TLS_CONFIG
+HAVE_CARES
+CARES_LIBS
+CARES_CFLAGS
 HAVE_LIBXML
 HAVE_LIBXSLT
 XSLT_LIBS
@@ -832,6 +835,7 @@ enable_iconv
 with_libiconv_include
 with_libiconv_library
 enable_limitediconv
+enable_cares
 enable_xml
 with_xml_prefix
 enable_xmltest
@@ -866,6 +870,8 @@ CPP
 PKG_CONFIG
 PKG_CONFIG_PATH
 PKG_CONFIG_LIBDIR
+CARES_CFLAGS
+CARES_LIBS
 XML_CFLAGS
 XML_LIBS
 XSLT_CFLAGS
@@ -1535,6 +1541,8 @@ Optional Features:
   --disable-iconv         Build even if iconv is not available
   --enable-limitediconv   Build even if iconv does not support lossy
                           conversion
+  --disable-cares         Disable use of c-ares for asynchronous host name
+                          lookup
   --disable-xm            Build even if XML-dependencies are not met
   --disable-xmltest       Do not try to compile and run a test XML program
   --disable-xslt          Build even if XSLT-dependency is not met
@@ -1635,6 +1643,9 @@ Some influential environment variables:
               directories to add to pkg-config's search path
   PKG_CONFIG_LIBDIR
               path overriding pkg-config's built-in search path
+  CARES_CFLAGS
+              C compiler flags for CARES, overriding pkg-config
+  CARES_LIBS  linker flags for CARES, overriding pkg-config
   XML_CFLAGS  C compiler flags for XML, overriding pkg-config
   XML_LIBS    linker flags for XML, overriding pkg-config
   XSLT_CFLAGS C compiler flags for XSLT, overriding pkg-config
@@ -14902,6 +14913,82 @@ fi
 # Check recent libgnutls for SSL streams.
 # See DEPENDENCIES POLICY at the start of this file.
 #--------------------------------------------------------------------
+# Check whether --enable-cares was given.
+if test ${enable_cares+y}
+then :
+  enableval=$enable_cares;
+else case e in #(
+  e) enable_cares=yes ;;
+esac
+fi
+
+
+HAVE_CARES=0
+
+if test $enable_cares = yes; then
+
+pkg_failed=no
+{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for CARES" >&5
+printf %s "checking for CARES... " >&6; }
+
+if test -n "$CARES_CFLAGS"; then
+    pkg_cv_CARES_CFLAGS="$CARES_CFLAGS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libcares >= 1.26.0\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "libcares >= 1.26.0") 2>&5
+  ac_status=$?
+  printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_CARES_CFLAGS=`$PKG_CONFIG --cflags "libcares >= 1.26.0" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+if test -n "$CARES_LIBS"; then
+    pkg_cv_CARES_LIBS="$CARES_LIBS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libcares >= 1.26.0\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "libcares >= 1.26.0") 2>&5
+  ac_status=$?
+  printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_CARES_LIBS=`$PKG_CONFIG --libs "libcares >= 1.26.0" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+
+if test $pkg_failed = yes -o $pkg_failed = untried; then
+  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf '%s\n' "no" >&6; }
+  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: c-ares 1.26.0 or later not found: host name lookups use threads." >&5
+printf '%s\n' "$as_me: c-ares 1.26.0 or later not found: host name lookups use threads." >&6;}
+else
+  CARES_CFLAGS=$pkg_cv_CARES_CFLAGS
+  CARES_LIBS=$pkg_cv_CARES_LIBS
+  { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf '%s\n' "yes" >&6; }
+
+    CPPFLAGS="$CPPFLAGS $CARES_CFLAGS"
+    INCLUDE_FLAGS="$INCLUDE_FLAGS $CARES_CFLAGS"
+    LIBS="$CARES_LIBS $LIBS"
+    HAVE_CARES=1
+
+printf '%s\n' "#define HAVE_CARES 1" >>confdefs.h
+
+
+fi
+fi
+
+
 # Check whether --enable-tls was given.
 if test ${enable_tls+y}
 then :

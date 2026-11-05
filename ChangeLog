@@ -1,3 +1,22 @@
+2026-11-06 Daniel Boyd <danieljboyd@icloud.com>
+
+	* configure.ac:
+	* configure:
+	* config.mak.in:
+	* Headers/GNUstepBase/config.h.in:
+	* Headers/GNUstepBase/GSConfig.h.in:
+	* INSTALL:
+	Look for c-ares 1.26 or later, with --disable-cares to build without
+	it.  Lookups work without it, as before.
+	* Source/NSHost.m: (+_resolveName:forLookup:) New, starts a lookup
+	through c-ares, sharing one channel and its event thread.
+	* Source/Additions/NSHost+GNUstepBase.m: Make +lookupName:thread:
+	target:selector:modes: use c-ares where it can, and the operation queue
+	if c-ares isn't there or finds nothing, as it doesn't read nsswitch.conf.
+	* Headers/GNUstepBase/NSHost+GNUstepBase.h: Document this, and the
+	GSHostResolverServers user default.
+	* Tests/base/NSHost/resolver.m: New, against a DNS server in the test.
+
 2026-11-02 Frederik Seiffert <frederik@algoriddim.com>
 
 	* Headers/Foundation/NSProgress.h:

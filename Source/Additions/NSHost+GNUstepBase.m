@@ -52,20 +52,29 @@
   NSString		*name;
   NSMutableArray	*clients;
   GSOperation		*operation;
+  NSHost		*resolved;	/* Set if c-ares answered.	*/
 }
 + (void) lookupName: (NSString*)name
              thread: (NSThread*)thread
              target: (id)anObject
            selector: (SEL)aSelector
               modes: (NSArray*)modes;
-- (void) addThread: (NSThread*)thread
+- (BOOL) addThread: (NSThread*)thread
 	    target: (id)anObject
 	  selector: (SEL)aSelector
 	     modes: (NSArray*)modes;
 - (instancetype) initWithName: (NSString*)n;
 - (void) notifyClients;
 - (void) operationCompleted;
+- (void) resolvedHost: (NSHost*)host;
+- (void) start;
 @end
+
+#if	!defined(__APPLE__)
+@interface NSHost (GSAsyncHost)
++ (BOOL) _resolveName: (NSString*)name forLookup: (id)client;
+@end
+#endif
 
 @implementation GSAsyncHost 
 
@@ -91,6 +100,7 @@ static NSOperationQueue		*operationQueue = nil;
               modes: (NSArray*)modes
 {
   GSAsyncHost	*h;
+  BOOL		start;
 
   if (nil == thread)
     {
@@ -121,8 +131,16 @@ static NSOperationQueue		*operationQueue = nil;
       [active setObject: h forKey: h->name];
       RELEASE(h);
     }
-  [h addThread: thread target: anObject selector: aSelector modes: modes];
+  start = [h addThread: thread target: anObject selector: aSelector modes: modes];
+  RETAIN(h);
   [activeLock unlock];
+  /* Outside the locks, as the lookup may complete before -start returns.
+   */
+  if (start)
+    {
+      [h start];
+    }
+  RELEASE(h);
 }
 
 + (NSOperationQueue*) queue
@@ -139,12 +157,15 @@ static NSOperationQueue		*operationQueue = nil;
   return operationQueue;
 }
 
-- (void) addThread: (NSThread*)thread
+/* Answers YES if the caller must send -start once it holds no locks.
+ */
+- (BOOL) addThread: (NSThread*)thread
 	    target: (id)anObject
 	  selector: (SEL)aSelector
 	     modes: (NSArray*)modes
 {
   GSAsyncHostClient	*c = [GSAsyncHostClient new];
+  BOOL			start = NO;
 
   c->target = [[GSBoxWeak alloc] initWithValue: anObject];
   c->selector = aSelector;
@@ -155,25 +176,24 @@ static NSOperationQueue		*operationQueue = nil;
   RELEASE(c);
   if ([clients count] == 1)
     {
-      /* No other items in the queue - either the operation has not been
-       * added yet or it finished (and queued clients have been notified).
+      /* No other items in the queue - either the lookup has not been
+       * started yet or it finished (and queued clients have been notified).
        */
-      if ([operation isFinished])
+      if (resolved != nil || [operation isFinished])
 	{
 	  [lock unlock];
 	  [self notifyClients];
-	  return;
+	  return NO;
 	}
-      else
-	{
-          [[GSAsyncHost queue] addOperation: operation];
-	}
+      start = YES;
     }
   [lock unlock];
+  return start;
 }
 
 - (void) dealloc
 {
+  DESTROY(resolved);
   DESTROY(operation);
   DESTROY(clients);
   DESTROY(name);
@@ -204,7 +224,15 @@ static NSOperationQueue		*operationQueue = nil;
 
   [lock lock];
   a = AUTORELEASE([clients copy]);
-  [operation getTarget: NULL selector: NULL object: NULL result: &r ofItem: 0];
+  if (resolved != nil)
+    {
+      r = resolved;
+    }
+  else
+    {
+      [operation getTarget: NULL selector: NULL object: NULL
+		    result: &r ofItem: 0];
+    }
   AUTORELEASE(RETAIN(r));
   [clients removeAllObjects];
   [lock unlock];
@@ -237,6 +265,35 @@ static NSOperationQueue		*operationQueue = nil;
     }
   [activeLock unlock];
   [self notifyClients];
+}
+
+/* c-ares has answered.  With no host it may only be that the name isn't in
+ * the DNS, so the system's own lookup gets to decide.
+ */
+- (void) resolvedHost: (NSHost*)host
+{
+  if (nil == host)
+    {
+      [[GSAsyncHost queue] addOperation: operation];
+    }
+  else
+    {
+      [lock lock];
+      ASSIGN(resolved, host);
+      [lock unlock];
+      [self operationCompleted];
+    }
+}
+
+- (void) start
+{
+#if	!defined(__APPLE__)
+  if ([NSHost _resolveName: name forLookup: self])
+    {
+      return;
+    }
+#endif
+  [[GSAsyncHost queue] addOperation: operation];
 }
 
 @end
