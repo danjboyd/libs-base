@@ -333,6 +333,10 @@ exitedThread(void *lastErrorPtr)
 - (void) _setLastError: (NSString*)msg code: (int)code;
 - (void) _setLastError: (NSString*)msg;
 
+/* Keeps the most recent system error as the last error, and answers its text.
+ */
+- (NSString*) _noteSystemError;
+
 /* A convenience method to return an NSError object.
  * If the _lastError message is set, this creates an NSError using
  * that message in the NSCocoaErrorDomain, otherwise it used the
@@ -351,7 +355,9 @@ exitedThread(void *lastErrorPtr)
 static NSError *
 removeError(NSError *underlying, NSString *path)
 {
-  NSInteger     code = NSFileWriteUnknownError;
+  NSInteger		code = NSFileWriteUnknownError;
+  NSMutableDictionary	*info;
+
 #if defined(_WIN32)
   switch ([underlying code])
     {
@@ -383,13 +389,20 @@ removeError(NSError *underlying, NSString *path)
 	break;
     }
 #endif
+  info = [NSMutableDictionary dictionaryWithObject: path
+					    forKey: NSFilePathErrorKey];
+  if (underlying != nil)
+    {
+      [info setObject: underlying forKey: NSUnderlyingErrorKey];
+      if ([underlying localizedDescription] != nil)
+	{
+	  [info setObject: [underlying localizedDescription]
+		   forKey: NSLocalizedDescriptionKey];
+	}
+    }
   return [NSError errorWithDomain: NSCocoaErrorDomain
 			     code: code
-			 userInfo: [NSDictionary dictionaryWithObjectsAndKeys:
-    [underlying localizedDescription], NSLocalizedDescriptionKey,
-    path, NSFilePathErrorKey,
-    underlying, NSUnderlyingErrorKey,
-    nil]];
+			 userInfo: info];
 }
 
 /**
@@ -1825,7 +1838,7 @@ static gs_mutex_t       classLock = GS_MUTEX_INIT_STATIC;
 
       if (res == WIN32ERR)
 	{
-	  NSString	*message = [[NSError _last] localizedDescription];
+	  NSString	*message = [self _noteSystemError];
 
 	  return [self _proceedAccordingToHandler: handler
 					 forError: message
@@ -1844,7 +1857,7 @@ static gs_mutex_t       classLock = GS_MUTEX_INIT_STATIC;
 
       if (lstat(lpath, &statbuf) != 0)
 	{
-	  NSString	*message = [[NSError _last] localizedDescription];
+	  NSString	*message = [self _noteSystemError];
 
 	  return [self _proceedAccordingToHandler: handler
 					 forError: message
@@ -1862,7 +1875,7 @@ static gs_mutex_t       classLock = GS_MUTEX_INIT_STATIC;
       if (unlink(lpath) < 0)
 #endif
 	{
-	  NSString	*message = [[NSError _last] localizedDescription];
+	  NSString	*message = [self _noteSystemError];
 
 	  return [self _proceedAccordingToHandler: handler
 					 forError: message
@@ -1898,7 +1911,7 @@ static gs_mutex_t       classLock = GS_MUTEX_INIT_STATIC;
 
       if (_RMDIR([self fileSystemRepresentationWithPath: path]) < 0)
 	{
-	  NSString	*message = [[NSError _last] localizedDescription];
+	  NSString	*message = [self _noteSystemError];
 
 	  return [self _proceedAccordingToHandler: handler
 					 forError: message
@@ -1924,7 +1937,18 @@ static gs_mutex_t       classLock = GS_MUTEX_INIT_STATIC;
     {
       if (NO == result)
 	{
-	  if ([self _lastError] != nil)
+	  NSError	*last = [self _lastError];
+
+	  if (last != nil && NO == [[last domain]
+	    isEqualToString: NSCocoaErrorDomain])
+	    {
+	      /* The system error, kept where it happened: later calls can
+	       * overwrite GetLastError() and errno.
+	       */
+	      *error = removeError(last, path);
+	      [self _setLastError: nil code: 0];
+	    }
+	  else if (last != nil)
 	    {
 	      *error = [self _errorFrom: path to: nil];
 	    }
@@ -3822,6 +3846,23 @@ static inline void gsedRelease(GSEnumeratedDirectory X)
   return [[[self _lastError] userInfo] objectForKey: NSLocalizedDescriptionKey];
 }
 
+- (NSString*) _noteSystemError
+{
+  NSError	*error = [NSError _last];
+  NSError	*oldError;
+
+#if __has_feature(objc_arc)
+  oldError = (__bridge_transfer NSError*)GS_THREAD_KEY_GET(thread_last_error_key);
+  GS_THREAD_KEY_SET(thread_last_error_key, (__bridge_retained void*)error);
+#pragma unused(oldError)
+#else
+  oldError = (NSError*)GS_THREAD_KEY_GET(thread_last_error_key);
+  GS_THREAD_KEY_SET(thread_last_error_key, RETAIN(error));
+  RELEASE(oldError);
+#endif
+  return [error localizedDescription];
+}
+
 - (void) _setLastError: (NSString*)msg code: (int)aCode
 {
   NSError	*oldError;
@@ -3855,6 +3896,13 @@ static inline void gsedRelease(GSEnumeratedDirectory X)
 {
   NSError       *error = [self _lastError];
 
+  if (error != nil && NO == [[error domain] isEqualToString: NSCocoaErrorDomain])
+    {
+      /* A system error kept by -_noteSystemError, which other callers don't
+       * expect: its user info need not be mutable.
+       */
+      error = nil;
+    }
   if (error)
     {
       NSMutableDictionary	*m;

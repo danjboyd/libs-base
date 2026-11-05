@@ -442,7 +442,13 @@
 	   * The watcher is still valid - so call its
 	   * receivers event handling method.
 	   */
-	  triggered = YES;
+	  /* An ET_TRIGGER watcher is a file handle polled on every pass, not
+	   * input known to be ready, so it doesn't count as input handled.
+	   */
+	  if (watcher->type != ET_TRIGGER)
+	    {
+	      triggered = YES;
+	    }
 	  [watcher->receiver receivedEvent: watcher->data
 				      type: watcher->type
 				     extra: watcher->data

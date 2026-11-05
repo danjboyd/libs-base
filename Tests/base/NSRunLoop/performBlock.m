@@ -7,6 +7,8 @@
 #import <Foundation/NSString.h>
 #import <Foundation/NSThread.h>
 
+#if defined(__has_feature) && __has_feature(blocks)
+
 /* Queues blocks on the main run loop from a thread of its own. */
 @interface BlockQueuer : NSObject
 {
@@ -145,3 +147,16 @@ int main()
   END_SET("NSRunLoop performBlock")
   return 0;
 }
+
+#else /* this test uses blocks, which this compiler lacks */
+
+int
+main(void)
+{
+  START_SET("NSRunLoop performBlock")
+  SKIP("this test uses blocks, which this compiler lacks")
+  END_SET("NSRunLoop performBlock")
+  return 0;
+}
+
+#endif

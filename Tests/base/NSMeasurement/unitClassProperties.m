@@ -7,6 +7,8 @@
 #import <objc/runtime.h>
 #import "Testing.h"
 
+#if defined(__clang__)
+
 int
 main(int argc, char *argv[])
 {
@@ -44,3 +46,16 @@ main(int argc, char *argv[])
   LEAVE_POOL
   return 0;
 }
+
+#else /* this compiler has no class property syntax */
+
+int
+main(void)
+{
+  START_SET("NSUnit class properties")
+  SKIP("this compiler has no class property syntax")
+  END_SET("NSUnit class properties")
+  return 0;
+}
+
+#endif
