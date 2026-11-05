@@ -1027,6 +1027,186 @@ GSStringFoldCaseWithLocale(NSString *input, id locale)
 #endif
 
 
+/* What the composed character sequence code needs to know about characters.
+ * These are approximations of the Unicode grapheme break properties, which
+ * base doesn't have tables for: Hangul jamo and Indic conjuncts aren't grouped.
+ */
+#define	ZWJ	0x200d
+
+static inline uint32_t
+codePointAt(GSCharAtFunction at, void *context, NSUInteger length, NSUInteger i)
+{
+  unichar	c = (*at)(context, i);
+
+  if (c >= 0xd800 && c <= 0xdbff && i + 1 < length)
+    {
+      unichar	d = (*at)(context, i + 1);
+
+      if (d >= 0xdc00 && d <= 0xdfff)
+	{
+	  return 0x10000 + ((uint32_t)(c - 0xd800) << 10) + (d - 0xdc00);
+	}
+    }
+  return c;
+}
+
+static inline NSUInteger
+indexBefore(GSCharAtFunction at, void *context, NSUInteger i)
+{
+  unichar	c = (*at)(context, i - 1);
+
+  if (c >= 0xdc00 && c <= 0xdfff && i > 1)
+    {
+      unichar	d = (*at)(context, i - 2);
+
+      if (d >= 0xd800 && d <= 0xdbff)
+	{
+	  return i - 2;
+	}
+    }
+  return i - 1;
+}
+
+/* A character that stays with what comes before it.
+ */
+static inline BOOL
+isExtender(uint32_t c)
+{
+  if (c < 0x10000)
+    {
+      return (c == ZWJ || (c >= 0xfe00 && c <= 0xfe0f)
+	|| uni_isnonsp((unichar)c)) ? YES : NO;
+    }
+  return ((c >= 0x1f3fb && c <= 0x1f3ff)	// Emoji modifiers
+    || (c >= 0xe0020 && c <= 0xe007f)		// Tags
+    || (c >= 0xe0100 && c <= 0xe01ef)) ? YES : NO;	// Variation selectors
+}
+
+static inline BOOL
+isRegionalIndicator(uint32_t c)
+{
+  return (c >= 0x1f1e6 && c <= 0x1f1ff) ? YES : NO;
+}
+
+/* A character that a zero width joiner can join to another.
+ */
+static inline BOOL
+isPictographic(uint32_t c)
+{
+  if (c >= 0x1f000 && c < 0x1fb00)
+    {
+      return (isRegionalIndicator(c) || (c >= 0x1f3fb && c <= 0x1f3ff))
+	? NO : YES;
+    }
+  return ((c >= 0x2190 && c <= 0x2bff) || c == 0xa9 || c == 0xae
+    || c == 0x203c || c == 0x2049 || c == 0x2122 || c == 0x2139
+    || c == 0x3030 || c == 0x303d || c == 0x3297 || c == 0x3299) ? YES : NO;
+}
+
+NSRange
+GSPrivateComposedRange(GSCharAtFunction at, void *context, NSUInteger length,
+  NSUInteger anIndex)
+{
+  NSUInteger	start = anIndex;
+  NSUInteger	end;
+  uint32_t	c;
+
+  /* Go back to the character the sequence starts with.
+   */
+  if (start > 0 && indexBefore(at, context, start + 1) < start)
+    {
+      start--;
+    }
+  while (start > 0)
+    {
+      c = codePointAt(at, context, length, start);
+      if (isExtender(c))
+	{
+	  start = indexBefore(at, context, start);
+	}
+      else if (isPictographic(c) && (*at)(context, start - 1) == ZWJ)
+	{
+	  NSUInteger	base = start - 1;
+
+	  while (base > 0
+	    && isExtender(codePointAt(at, context, length, base)))
+	    {
+	      base = indexBefore(at, context, base);
+	    }
+	  if (NO == isPictographic(codePointAt(at, context, length, base)))
+	    {
+	      break;
+	    }
+	  start = base;
+	}
+      else
+	{
+	  break;
+	}
+    }
+
+  c = codePointAt(at, context, length, start);
+  if (isRegionalIndicator(c))
+    {
+      NSUInteger	before = 0;
+      NSUInteger	i = start;
+
+      /* Flags are pairs, counted from the first indicator in the run.
+       */
+      while (i >= 2
+	&& isRegionalIndicator(codePointAt(at, context, length, i - 2)))
+	{
+	  before++;
+	  i -= 2;
+	}
+      if (before % 2 == 1)
+	{
+	  start -= 2;
+	}
+    }
+
+  c = codePointAt(at, context, length, start);
+  end = start + (c < 0x10000 ? 1 : 2);
+  if (isRegionalIndicator(c) && end < length
+    && isRegionalIndicator(codePointAt(at, context, length, end)))
+    {
+      end += 2;
+    }
+  while (end < length)
+    {
+      uint32_t	d = codePointAt(at, context, length, end);
+
+      if (NO == isExtender(d))
+	{
+	  break;
+	}
+      end += (d < 0x10000 ? 1 : 2);
+      if (d == ZWJ && end < length && isPictographic(c))
+	{
+	  d = codePointAt(at, context, length, end);
+	  if (isPictographic(d))
+	    {
+	      end += (d < 0x10000 ? 1 : 2);
+	    }
+	}
+    }
+  return NSMakeRange(start, end - start);
+}
+
+struct charAtContext
+{
+  NSString	*string;
+  unichar	(*imp)(NSString*, SEL, NSUInteger);
+};
+
+static unichar
+charAtString(void *context, NSUInteger i)
+{
+  struct charAtContext	*c = (struct charAtContext*)context;
+
+  return (*c->imp)(c->string, caiSel, i);
+}
+
 @implementation NSString
 //  NSString itself is an abstract class which provides factory
 //  methods to generate objects of unspecified subclasses.
@@ -3494,31 +3674,15 @@ dataWithContentsOfURL(NSURL *url, NSError **error)
  */
 - (NSRange) rangeOfComposedCharacterSequenceAtIndex: (NSUInteger)anIndex
 {
-  unsigned	start;
-  unsigned	end;
-  unsigned	length = [self length];
-  unichar	ch;
-  unichar	(*caiImp)(NSString*, SEL, NSUInteger);
+  NSUInteger	length = [self length];
+  struct charAtContext	context;
 
   if (anIndex >= length)
     [NSException raise: NSRangeException format:@"Invalid location."];
-  caiImp = (unichar (*)(NSString*,SEL,NSUInteger))
+  context.string = self;
+  context.imp = (unichar (*)(NSString*,SEL,NSUInteger))
     [self methodForSelector: caiSel];
-
-  for (start = anIndex; start > 0; start--)
-    {
-      ch = (*caiImp)(self, caiSel, start);
-      if (uni_isnonsp(ch) == NO)
-        break;
-    }
-  for (end = start+1; end < length; end++)
-    {
-      ch = (*caiImp)(self, caiSel, end);
-      if (uni_isnonsp(ch) == NO)
-        break;
-    }
-
-  return NSMakeRange(start, end-start);
+  return GSPrivateComposedRange(charAtString, &context, length, anIndex);
 }
 
 - (NSRange) rangeOfComposedCharacterSequencesForRange: (NSRange)range

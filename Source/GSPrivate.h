@@ -583,6 +583,14 @@ GSPrivateAndroidToolsDirectory(void) GS_ATTRIB_PRIVATE;
 unsigned char
 GSPrivateUniCop(unichar u) GS_ATTRIB_PRIVATE;
 
+/* Returns the range of the composed character sequence containing a UTF-16
+ * index of a string of the given length, reading characters through a function.
+ */
+typedef unichar (*GSCharAtFunction)(void *context, NSUInteger i);
+NSRange
+GSPrivateComposedRange(GSCharAtFunction at, void *context, NSUInteger length,
+  NSUInteger anIndex) GS_ATTRIB_PRIVATE;
+
 /* unload a module from the runtime (not implemented)
  */
 long

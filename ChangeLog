@@ -1,5 +1,14 @@
 2026-11-05 Daniel Boyd <danieljboyd@icloud.com>
 
+	* Source/GSPrivate.h:
+	* Source/GSString.m:
+	* Source/NSString.m:
+	* Tests/base/NSString/composedSequence.m:
+	Group emoji modifiers, joined emoji, flags and variation selectors in
+	-rangeOfComposedCharacterSequenceAtIndex:.
+
+2026-11-05 Daniel Boyd <danieljboyd@icloud.com>
+
 	* Source/NSFileManager.m:
 	* Tests/base/NSFileManager/removeError.m:
 	Report a failed -removeItemAtPath:error: in NSCocoaErrorDomain, with the
