@@ -47,6 +47,8 @@ main(void)
 int
 main(void)
 {
+  /* An MSVC link fails for a program that uses no Objective-C. */
+  [NSObject class];
   return 0;
 }
 

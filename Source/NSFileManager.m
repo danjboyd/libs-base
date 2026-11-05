@@ -335,7 +335,7 @@ exitedThread(void *lastErrorPtr)
 
 /* Keeps the most recent system error as the last error, and answers its text.
  */
-- (NSString*) _noteSystemError;
+- (NSString*) _noteSystemError: (NSError*)error;
 
 /* A convenience method to return an NSError object.
  * If the _lastError message is set, this creates an NSError using
@@ -1838,7 +1838,9 @@ static gs_mutex_t       classLock = GS_MUTEX_INIT_STATIC;
 
       if (res == WIN32ERR)
 	{
-	  NSString	*message = [self _noteSystemError];
+	  /* Read at once: sending a message can overwrite the last error. */
+	  NSString	*message = [self _noteSystemError:
+	    [NSError _systemError: GetLastError()]];
 
 	  return [self _proceedAccordingToHandler: handler
 					 forError: message
@@ -1857,7 +1859,7 @@ static gs_mutex_t       classLock = GS_MUTEX_INIT_STATIC;
 
       if (lstat(lpath, &statbuf) != 0)
 	{
-	  NSString	*message = [self _noteSystemError];
+	  NSString	*message = [self _noteSystemError: [NSError _last]];
 
 	  return [self _proceedAccordingToHandler: handler
 					 forError: message
@@ -1875,7 +1877,7 @@ static gs_mutex_t       classLock = GS_MUTEX_INIT_STATIC;
       if (unlink(lpath) < 0)
 #endif
 	{
-	  NSString	*message = [self _noteSystemError];
+	  NSString	*message = [self _noteSystemError: [NSError _last]];
 
 	  return [self _proceedAccordingToHandler: handler
 					 forError: message
@@ -1911,7 +1913,7 @@ static gs_mutex_t       classLock = GS_MUTEX_INIT_STATIC;
 
       if (_RMDIR([self fileSystemRepresentationWithPath: path]) < 0)
 	{
-	  NSString	*message = [self _noteSystemError];
+	  NSString	*message = [self _noteSystemError: [NSError _last]];
 
 	  return [self _proceedAccordingToHandler: handler
 					 forError: message
@@ -3846,9 +3848,8 @@ static inline void gsedRelease(GSEnumeratedDirectory X)
   return [[[self _lastError] userInfo] objectForKey: NSLocalizedDescriptionKey];
 }
 
-- (NSString*) _noteSystemError
+- (NSString*) _noteSystemError: (NSError*)error
 {
-  NSError	*error = [NSError _last];
   NSError	*oldError;
 
 #if __has_feature(objc_arc)
