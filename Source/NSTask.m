@@ -1875,9 +1875,10 @@ GSPrivateCheckTasks()
   }
   
   goto skip_fork_implementation;
-#endif /* USE_POSIX_SPAWN */
 
 use_fork_implementation:
+#endif /* USE_POSIX_SPAWN */
+
   /* NB. we use fork() rather than vfork() because the bahavior of vfork()
    * is undefined when we assign to variables or make system calls (as we
    * do below) other than a very limited set.
@@ -1886,6 +1887,7 @@ use_fork_implementation:
    * assume the standard POSIX behavior.
    */
   {
+  [tasksLock lock];
   pid = fork();
   if (pid < 0)
     {
@@ -1893,6 +1895,7 @@ use_fork_implementation:
 	{
 	  *error = [NSError _last];
 	}
+      [tasksLock unlock];
       return NO;
     }
   if (pid == 0)
@@ -2021,6 +2024,7 @@ use_fork_implementation:
     }
   else
     {
+      [tasksLock unlock];
 #if defined(USE_POSIX_SPAWN)
 skip_fork_implementation:
 #endif
