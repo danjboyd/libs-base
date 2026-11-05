@@ -345,6 +345,53 @@ exitedThread(void *lastErrorPtr)
 				   
 @end /* NSFileManager (PrivateMethods) */
 
+/* The error for a failed removal: in the Cocoa domain, as on OSX, with the
+ * system error as its underlying error.
+ */
+static NSError *
+removeError(NSError *underlying, NSString *path)
+{
+  NSInteger     code = NSFileWriteUnknownError;
+#if defined(_WIN32)
+  switch ([underlying code])
+    {
+      case ERROR_FILE_NOT_FOUND:
+      case ERROR_PATH_NOT_FOUND:
+	code = NSFileNoSuchFileError;
+	break;
+      case ERROR_ACCESS_DENIED:
+      case ERROR_SHARING_VIOLATION:
+	code = NSFileWriteNoPermissionError;
+	break;
+      case ERROR_WRITE_PROTECT:
+	code = NSFileWriteVolumeReadOnlyError;
+	break;
+    }
+#else
+  switch ([underlying code])
+    {
+      case ENOENT:
+      case ENOTDIR:
+	code = NSFileNoSuchFileError;
+	break;
+      case EACCES:
+      case EPERM:
+	code = NSFileWriteNoPermissionError;
+	break;
+      case EROFS:
+	code = NSFileWriteVolumeReadOnlyError;
+	break;
+    }
+#endif
+  return [NSError errorWithDomain: NSCocoaErrorDomain
+			     code: code
+			 userInfo: [NSDictionary dictionaryWithObjectsAndKeys:
+    [underlying localizedDescription], NSLocalizedDescriptionKey,
+    path, NSFilePathErrorKey,
+    underlying, NSUnderlyingErrorKey,
+    nil]];
+}
+
 /**
  *  This is the main class for platform-independent management of the local
  *  filesystem, which allows you to read and save files, create/list
@@ -1877,7 +1924,14 @@ static gs_mutex_t       classLock = GS_MUTEX_INIT_STATIC;
     {
       if (NO == result)
 	{
-	  *error = [self _errorFrom: path to: nil];
+	  if ([self _lastError] != nil)
+	    {
+	      *error = [self _errorFrom: path to: nil];
+	    }
+	  else
+	    {
+	      *error = removeError([NSError _last], path);
+	    }
 	}
     }
 

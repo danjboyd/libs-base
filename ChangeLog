@@ -1,3 +1,10 @@
+2026-11-05 Daniel Boyd <danieljboyd@icloud.com>
+
+	* Source/NSFileManager.m:
+	* Tests/base/NSFileManager/removeError.m:
+	Report a failed -removeItemAtPath:error: in NSCocoaErrorDomain, with the
+	system error as the underlying error.
+
 2026-11-04 Daniel Boyd <danieljboyd@icloud.com>
 
 	* Source/NSPropertyList.m:
