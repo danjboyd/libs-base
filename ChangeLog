@@ -1,5 +1,26 @@
 2026-11-05 Daniel Boyd <danieljboyd@icloud.com>
 
+	* Source/win32/GSRunLoopCtxt.m:
+	A file handle polled with ET_TRIGGER isn't input handled, so the run
+	loop goes on waiting on Windows, as it did before 2026-10-15.
+	* Source/NSData.m:
+	* Source/NSFileManager.m:
+	Map Windows errors to Cocoa codes, and keep the system error where it
+	happens in -removeFileAtPath:handler:, since later calls overwrite it.
+	* Headers/Foundation/NSUnit.h:
+	Declare the units as class methods for compilers without class properties.
+	* Tests/base/NSData/writeError.m:
+	* Tests/base/NSFileManager/removeError.m:
+	* Tests/base/NSMeasurement/unitClassProperties.m:
+	* Tests/base/NSObject/GNUmakefile.preamble:
+	* Tests/base/NSRunLoop/performBlock.m:
+	* Tests/base/NSURL/resolveAlias.m:
+	* Tests/base/NSURLSession/interimResponse.m:
+	* Tests/base/NSURLSession/streamedBody.m:
+	Build and run these where they can, and say why where they can't.
+
+2026-11-05 Daniel Boyd <danieljboyd@icloud.com>
+
 	* .github/scripts/dependencies.sh:
 	* .github/workflows/main.yml:
 	Build CI against the fork's pinned tools-make, libobjc2 and libdispatch.

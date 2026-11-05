@@ -31,8 +31,13 @@ int main()
     "the error code is NSFileNoSuchFileError");
   PASS_EQUAL([[error userInfo] objectForKey: NSFilePathErrorKey], missing,
     "the error names the path");
+#if defined(_WIN32)
+  PASS_EQUAL([[[error userInfo] objectForKey: NSUnderlyingErrorKey] domain],
+    NSOSStatusErrorDomain, "the underlying error is the system error");
+#else
   PASS_EQUAL([[[error userInfo] objectForKey: NSUnderlyingErrorKey] domain],
     NSPOSIXErrorDomain, "the underlying error is the system error");
+#endif
 
   error = nil;
   ok = [data writeToFile: missing options: NSDataWritingAtomic error: &error];

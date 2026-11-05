@@ -17,6 +17,8 @@ int main(void)
   NSURL			*resolved;
   NSError		*error = nil;
 
+  START_SET("NSURL alias resolution")
+
   dir = [NSTemporaryDirectory() stringByAppendingPathComponent:
     [NSString stringWithFormat: @"resolveAlias-%d",
       [[NSProcessInfo processInfo] processIdentifier]]];
@@ -27,8 +29,15 @@ int main(void)
   chain = [dir stringByAppendingPathComponent: @"chain"];
   [@"content" writeToFile: file atomically: NO
     encoding: NSUTF8StringEncoding error: NULL];
-  [manager createSymbolicLinkAtPath: link withDestinationPath: @"file"
-    error: NULL];
+  if (NO == [manager createSymbolicLinkAtPath: link withDestinationPath: @"file"
+    error: NULL])
+    {
+      /* NSFileManager only makes symbolic links where HAVE_SYMLINK is set, and
+       * not on Windows, so there is nothing here to resolve.
+       */
+      [manager removeItemAtPath: dir error: NULL];
+      SKIP("this platform has no symbolic links")
+    }
   [manager createSymbolicLinkAtPath: chain withDestinationPath: link
     error: NULL];
 
@@ -59,6 +68,7 @@ int main(void)
     error: NULL], url, "a URL that is not a file URL is answered unchanged")
 
   [manager removeItemAtPath: dir error: NULL];
+  END_SET("NSURL alias resolution")
   [arp release];
   return 0;
 }

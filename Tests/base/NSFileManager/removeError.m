@@ -1,8 +1,12 @@
 #import "ObjectTesting.h"
 #import <Foundation/Foundation.h>
 #include <errno.h>
+#if !defined(_WIN32)
 #include <sys/stat.h>
 #include <unistd.h>
+#else
+#include <windows.h>
+#endif
 
 int main()
 {
@@ -29,9 +33,16 @@ int main()
   PASS_EQUAL([[error userInfo] objectForKey: NSFilePathErrorKey], missing,
     "the error names the path")
   underlying = [[error userInfo] objectForKey: NSUnderlyingErrorKey];
+#if defined(_WIN32)
+  PASS_EQUAL([underlying domain], NSOSStatusErrorDomain,
+    "the underlying error is the system's")
+  PASS([underlying code] == ERROR_FILE_NOT_FOUND,
+    "the underlying code is the system's")
+#else
   PASS_EQUAL([underlying domain], NSPOSIXErrorDomain,
     "the underlying error is the system's")
   PASS([underlying code] == ENOENT, "the underlying code is the system's")
+#endif
 
   error = nil;
   ok = [mgr removeItemAtURL: [NSURL fileURLWithPath: missing] error: &error];

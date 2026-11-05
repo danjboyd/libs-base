@@ -618,6 +618,26 @@ setWriteError(NSError **errorPtr, NSString *path, NSError *underlying)
     {
       return;
     }
+#if defined(_WIN32)
+  /* The system error is a Windows one, from GetLastError(). */
+  switch ([underlying code])
+    {
+      case ERROR_FILE_NOT_FOUND:
+      case ERROR_PATH_NOT_FOUND:
+	code = NSFileNoSuchFileError;
+	break;
+      case ERROR_ACCESS_DENIED:
+      case ERROR_SHARING_VIOLATION:
+	code = NSFileWriteNoPermissionError;
+	break;
+      case ERROR_WRITE_PROTECT:
+	code = NSFileWriteVolumeReadOnlyError;
+	break;
+      case ERROR_FILENAME_EXCED_RANGE:
+	code = NSFileWriteInvalidFileNameError;
+	break;
+    }
+#endif
   if ([[underlying domain] isEqualToString: NSPOSIXErrorDomain])
     {
       switch ([underlying code])

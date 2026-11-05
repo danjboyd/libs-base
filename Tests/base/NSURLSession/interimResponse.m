@@ -8,7 +8,8 @@
 
 #import <Foundation/Foundation.h>
 
-#if GS_HAVE_NSURLSESSION
+/* EchoServer.h is a small POSIX socket server, which Windows does not have. */
+#if GS_HAVE_NSURLSESSION && !defined(_WIN32)
 
 #import "Testing.h"
 #import "EchoServer.h"

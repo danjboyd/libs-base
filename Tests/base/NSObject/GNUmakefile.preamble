@@ -1,0 +1,4 @@
+# enumerationMutation.m looks the runtime up with dlopen().
+ifneq ($(findstring linux,$(GNUSTEP_TARGET_OS)),)
+enumerationMutation_TOOL_LIBS = -ldl
+endif

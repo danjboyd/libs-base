@@ -32,6 +32,16 @@
 extern "C" {
 #endif
 
+/* GCC has no class properties until recent versions, and can't use them even
+ * then.  Either way the units are class methods with these names.
+ */
+#if defined(__clang__)
+#define GS_UNIT_CLASS_PROPERTY(TYPE, NAME) \
+  @property (class, readonly, copy) TYPE *NAME
+#else
+#define GS_UNIT_CLASS_PROPERTY(TYPE, NAME) + (TYPE *) NAME
+#endif
+
 /**
  * Unit converter.  This is an abstract class.
  */
@@ -143,12 +153,12 @@ GS_EXPORT_CLASS
 /**
  * Units of accelleration in meters per second squared.
  */
-@property (class, readonly, copy) NSUnitAcceleration *metersPerSecondSquared;
+GS_UNIT_CLASS_PROPERTY(NSUnitAcceleration, metersPerSecondSquared);
 
 /**
  * Units of accelleration equal to the gravitational constant.
  */
-@property (class, readonly, copy) NSUnitAcceleration *gravity;
+GS_UNIT_CLASS_PROPERTY(NSUnitAcceleration, gravity);
 
 @end
 
@@ -161,32 +171,32 @@ GS_EXPORT_CLASS
 /**
  * Units of angle in degrees.
  */
-@property (class, readonly, copy) NSUnitAngle *degrees;
+GS_UNIT_CLASS_PROPERTY(NSUnitAngle, degrees);
 
 /**
  * Units of angle in arc minutes.
  */
-@property (class, readonly, copy) NSUnitAngle *arcMinutes;
+GS_UNIT_CLASS_PROPERTY(NSUnitAngle, arcMinutes);
 
 /**
  * Units of angle arc seconds.
  */
-@property (class, readonly, copy) NSUnitAngle *arcSeconds;
+GS_UNIT_CLASS_PROPERTY(NSUnitAngle, arcSeconds);
 
 /**
  * Units of angle in radians.
  */
-@property (class, readonly, copy) NSUnitAngle *radians;
+GS_UNIT_CLASS_PROPERTY(NSUnitAngle, radians);
 
 /**
  * Units of area in square megameters.
  */
-@property (class, readonly, copy) NSUnitAngle *gradians;
+GS_UNIT_CLASS_PROPERTY(NSUnitAngle, gradians);
 
 /**
  * Units of area in square megameters.
  */
-@property (class, readonly, copy) NSUnitAngle *revolutions;
+GS_UNIT_CLASS_PROPERTY(NSUnitAngle, revolutions);
 
 @end
 
@@ -199,72 +209,72 @@ GS_EXPORT_CLASS
 /**
  * Units of area in square megameters.
  */
-@property (class, readonly, copy) NSUnitArea *squareMegameters;
+GS_UNIT_CLASS_PROPERTY(NSUnitArea, squareMegameters);
 
 /**
  * Units of area in square kilometers.
  */
-@property (class, readonly, copy) NSUnitArea *squareKilometers;
+GS_UNIT_CLASS_PROPERTY(NSUnitArea, squareKilometers);
 
 /**
  * Units of area in square meters.
  */
-@property (class, readonly, copy) NSUnitArea *squareMeters;
+GS_UNIT_CLASS_PROPERTY(NSUnitArea, squareMeters);
 
 /**
  * Units of area in square centimeters.
  */
-@property (class, readonly, copy) NSUnitArea *squareCentimeters;
+GS_UNIT_CLASS_PROPERTY(NSUnitArea, squareCentimeters);
 
 /**
  * Units of area in square millimeters.
  */
-@property (class, readonly, copy) NSUnitArea *squareMillimeters;
+GS_UNIT_CLASS_PROPERTY(NSUnitArea, squareMillimeters);
 
 /**
  * Units of area in square micrometers.
  */
-@property (class, readonly, copy) NSUnitArea *squareMicrometers;
+GS_UNIT_CLASS_PROPERTY(NSUnitArea, squareMicrometers);
 
 /**
  * Units of area in square nanometers.
  */
-@property (class, readonly, copy) NSUnitArea *squareNanometers;
+GS_UNIT_CLASS_PROPERTY(NSUnitArea, squareNanometers);
 
 /**
  * Units of area in square inches.
  */
-@property (class, readonly, copy) NSUnitArea *squareInches;
+GS_UNIT_CLASS_PROPERTY(NSUnitArea, squareInches);
 
 /**
  * Units of area in square feet.
  */
-@property (class, readonly, copy) NSUnitArea *squareFeet;
+GS_UNIT_CLASS_PROPERTY(NSUnitArea, squareFeet);
 
 /**
  * Units of area in square yards.
  */
-@property (class, readonly, copy) NSUnitArea *squareYards;
+GS_UNIT_CLASS_PROPERTY(NSUnitArea, squareYards);
 
 /**
  * Units of area in square miles.
  */
-@property (class, readonly, copy) NSUnitArea *squareMiles;
+GS_UNIT_CLASS_PROPERTY(NSUnitArea, squareMiles);
 
 /**
  * Units of area in acres/
  */
-@property (class, readonly, copy) NSUnitArea *acres;
+GS_UNIT_CLASS_PROPERTY(NSUnitArea, acres);
 
 /**
  * Units of area in ares.
  */
-@property (class, readonly, copy) NSUnitArea *ares;
+GS_UNIT_CLASS_PROPERTY(NSUnitArea, ares);
 
 /**
  * Units of area in hectares.
  */
-@property (class, readonly, copy) NSUnitArea *hectares;
+GS_UNIT_CLASS_PROPERTY(NSUnitArea, hectares);
 
 @end
 
@@ -277,12 +287,12 @@ GS_EXPORT_CLASS
 /**
  * Concentration units in grams per liter.
  */
-@property (class, readonly, copy) NSUnitConcentrationMass *gramsPerLiter;
+GS_UNIT_CLASS_PROPERTY(NSUnitConcentrationMass, gramsPerLiter);
 
 /**
  * Concentration units in milligrams per deciliter.
  */
-@property (class, readonly, copy) NSUnitConcentrationMass *milligramsPerDeciliter;
+GS_UNIT_CLASS_PROPERTY(NSUnitConcentrationMass, milligramsPerDeciliter);
 
 /**
  * Concentration units in grams per mole.
@@ -301,7 +311,7 @@ GS_EXPORT_CLASS
 /**
  * Units of dispersion in parts per million.
  */
-@property (class, readonly, copy) NSUnitDispersion *partsPerMillion;
+GS_UNIT_CLASS_PROPERTY(NSUnitDispersion, partsPerMillion);
 
 @end
 
@@ -314,17 +324,17 @@ GS_EXPORT_CLASS
 /**
  * Units of duration in seconds.
  */
-@property (class, readonly, copy) NSUnitDuration *seconds;
+GS_UNIT_CLASS_PROPERTY(NSUnitDuration, seconds);
 
 /**
  * Units of duration in minutes.
  */
-@property (class, readonly, copy) NSUnitDuration *minutes;
+GS_UNIT_CLASS_PROPERTY(NSUnitDuration, minutes);
 
 /**
  * Units of duration in hours.
  */
-@property (class, readonly, copy) NSUnitDuration *hours;
+GS_UNIT_CLASS_PROPERTY(NSUnitDuration, hours);
 
 @end
 
@@ -337,32 +347,32 @@ GS_EXPORT_CLASS
 /**
  * The units of eletric charge in coulombs.
  */
-@property (class, readonly, copy) NSUnitElectricCharge *coulombs;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricCharge, coulombs);
 
 /**
  * The units of eletric charge in megaampere hours.
  */
-@property (class, readonly, copy) NSUnitElectricCharge *megaampereHours;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricCharge, megaampereHours);
 
 /**
  * The units of eletric charge in kiloampere hours.
  */
-@property (class, readonly, copy) NSUnitElectricCharge *kiloampereHours;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricCharge, kiloampereHours);
 
 /**
  * The units of eletric charge in ampere hours.
  */
-@property (class, readonly, copy) NSUnitElectricCharge *ampereHours;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricCharge, ampereHours);
 
 /**
  * The units of eletric charge in milliampere hours.
  */
-@property (class, readonly, copy) NSUnitElectricCharge *milliampereHours;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricCharge, milliampereHours);
 
 /**
  * The units of eletric charge in microampere hours.
  */
-@property (class, readonly, copy) NSUnitElectricCharge *microampereHours;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricCharge, microampereHours);
 
 @end
 
@@ -375,27 +385,27 @@ GS_EXPORT_CLASS
 /**
  * The units of eletric current in megaamperes.
  */
-@property (class, readonly, copy) NSUnitElectricCurrent *megaamperes;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricCurrent, megaamperes);
 
 /**
  * The units of eletric current in kiloamperes.
  */
-@property (class, readonly, copy) NSUnitElectricCurrent *kiloamperes;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricCurrent, kiloamperes);
 
 /**
  * The units of eletric current in amperes.
  */
-@property (class, readonly, copy) NSUnitElectricCurrent *amperes;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricCurrent, amperes);
 
 /**
  * The units of eletric current in milliamperes.
  */
-@property (class, readonly, copy) NSUnitElectricCurrent *milliamperes;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricCurrent, milliamperes);
 
 /**
  * The units of eletric current in microamperes.
  */
-@property (class, readonly, copy) NSUnitElectricCurrent *microamperes;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricCurrent, microamperes);
 
 @end
 
@@ -408,27 +418,27 @@ GS_EXPORT_CLASS
 /**
  * The units of eletric potential in megavolts.
  */
-@property (class, readonly, copy) NSUnitElectricPotentialDifference *megavolts;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricPotentialDifference, megavolts);
 
 /**
  * The units of eletric potential in kilovolts.
  */
-@property (class, readonly, copy) NSUnitElectricPotentialDifference *kilovolts;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricPotentialDifference, kilovolts);
 
 /**
  * The units of eletric potential in volts.
  */
-@property (class, readonly, copy) NSUnitElectricPotentialDifference *volts;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricPotentialDifference, volts);
 
 /**
  * The units of eletric potential in millivolts.
  */
-@property (class, readonly, copy) NSUnitElectricPotentialDifference *millivolts;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricPotentialDifference, millivolts);
 
 /**
  * The units of eletric potential in microvolts.
  */
-@property (class, readonly, copy) NSUnitElectricPotentialDifference *microvolts;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricPotentialDifference, microvolts);
 
 @end
 
@@ -441,27 +451,27 @@ GS_EXPORT_CLASS
 /**
  * The units of eletric resistance in megaohms.
  */
-@property (class, readonly, copy) NSUnitElectricResistance *megaohms;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricResistance, megaohms);
 
 /**
  * The units of eletric resistance in kiloohms.
  */
-@property (class, readonly, copy) NSUnitElectricResistance *kiloohms;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricResistance, kiloohms);
 
 /**
  * The units of eletric resistance in ohms.
  */
-@property (class, readonly, copy) NSUnitElectricResistance *ohms;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricResistance, ohms);
 
 /**
  * The units of eletric resistance in milliohms.
  */
-@property (class, readonly, copy) NSUnitElectricResistance *milliohms;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricResistance, milliohms);
 
 /**
  * The units of eletric resistance in microohms.
  */
-@property (class, readonly, copy) NSUnitElectricResistance *microohms;
+GS_UNIT_CLASS_PROPERTY(NSUnitElectricResistance, microohms);
 
 @end
 
@@ -474,27 +484,27 @@ GS_EXPORT_CLASS
 /**
  * The units of energy in kilojoules.
  */
-@property (class, readonly, copy) NSUnitEnergy *kilojoules;
+GS_UNIT_CLASS_PROPERTY(NSUnitEnergy, kilojoules);
 
 /**
  * The units of energy in joules.
  */
-@property (class, readonly, copy) NSUnitEnergy *joules;
+GS_UNIT_CLASS_PROPERTY(NSUnitEnergy, joules);
 
 /**
  * The units of energy in kilocalories.
  */
-@property (class, readonly, copy) NSUnitEnergy *kilocalories;
+GS_UNIT_CLASS_PROPERTY(NSUnitEnergy, kilocalories);
 
 /**
  * The units of energy in calories.
  */
-@property (class, readonly, copy) NSUnitEnergy *calories;
+GS_UNIT_CLASS_PROPERTY(NSUnitEnergy, calories);
 
 /**
  * The units of energy in kilawatt hours.
  */
-@property (class, readonly, copy) NSUnitEnergy *kilowattHours;
+GS_UNIT_CLASS_PROPERTY(NSUnitEnergy, kilowattHours);
 
 @end
 
@@ -507,42 +517,42 @@ GS_EXPORT_CLASS
 /**
  * The units of frequency in terahertz.
  */
-@property (class, readonly, copy) NSUnitFrequency *terahertz;
+GS_UNIT_CLASS_PROPERTY(NSUnitFrequency, terahertz);
 
 /**
  * The units of frequency in gigahertz.
  */
-@property (class, readonly, copy) NSUnitFrequency *gigahertz;
+GS_UNIT_CLASS_PROPERTY(NSUnitFrequency, gigahertz);
 
 /**
  * The units of frequency in megahertz.
  */
-@property (class, readonly, copy) NSUnitFrequency *megahertz;
+GS_UNIT_CLASS_PROPERTY(NSUnitFrequency, megahertz);
 
 /**
  * The units of frequency in kilohertz.
  */
-@property (class, readonly, copy) NSUnitFrequency *kilohertz;
+GS_UNIT_CLASS_PROPERTY(NSUnitFrequency, kilohertz);
 
 /**
  * The units of frequency in hertz.
  */
-@property (class, readonly, copy) NSUnitFrequency *hertz;
+GS_UNIT_CLASS_PROPERTY(NSUnitFrequency, hertz);
 
 /**
  * The units of frequency in millihertz.
  */
-@property (class, readonly, copy) NSUnitFrequency *millihertz;
+GS_UNIT_CLASS_PROPERTY(NSUnitFrequency, millihertz);
 
 /**
  * The units of frequency in microhertz.
  */
-@property (class, readonly, copy) NSUnitFrequency *microhertz;
+GS_UNIT_CLASS_PROPERTY(NSUnitFrequency, microhertz);
 
 /**
  * The units of frequency in nanohertz.
  */
-@property (class, readonly, copy) NSUnitFrequency *nanohertz;
+GS_UNIT_CLASS_PROPERTY(NSUnitFrequency, nanohertz);
 
 @end
 
@@ -555,17 +565,17 @@ GS_EXPORT_CLASS
 /**
  * The units of fuel efficiency in liters per 100 kilometers.
  */
-@property (class, readonly, copy) NSUnitFuelEfficiency *litersPer100Kilometers;
+GS_UNIT_CLASS_PROPERTY(NSUnitFuelEfficiency, litersPer100Kilometers);
 
 /**
  * The units of fuel efficiency in miles per imperial gallon.
  */
-@property (class, readonly, copy) NSUnitFuelEfficiency *milesPerImperialGallon;
+GS_UNIT_CLASS_PROPERTY(NSUnitFuelEfficiency, milesPerImperialGallon);
 
 /**
  * The units of fuel efficiency in miles per gallon.
  */
-@property (class, readonly, copy) NSUnitFuelEfficiency *milesPerGallon;
+GS_UNIT_CLASS_PROPERTY(NSUnitFuelEfficiency, milesPerGallon);
 
 @end
 
@@ -578,112 +588,112 @@ GS_EXPORT_CLASS
 /**
  * The units of length in megameters.
  */
-@property (class, readonly, copy) NSUnitLength *megameters;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, megameters);
 
 /**
  * The units of length in kilometers.
  */
-@property (class, readonly, copy) NSUnitLength *kilometers;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, kilometers);
 
 /**
  * The units of length in hectometers.
  */
-@property (class, readonly, copy) NSUnitLength *hectometers;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, hectometers);
 
 /**
  * The units of length in decameters.
  */
-@property (class, readonly, copy) NSUnitLength *decameters;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, decameters);
 
 /**
  * The units of length in meters.
  */
-@property (class, readonly, copy) NSUnitLength *meters;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, meters);
 
 /**
  * The units of length in decimeters.
  */
-@property (class, readonly, copy) NSUnitLength *decimeters;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, decimeters);
 
 /**
  * The units of length in centimeters.
  */
-@property (class, readonly, copy) NSUnitLength *centimeters;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, centimeters);
 
 /**
  * The units of length in millimeters.
  */
-@property (class, readonly, copy) NSUnitLength *millimeters;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, millimeters);
 
 /**
  * The units of length in micrometers.
  */
-@property (class, readonly, copy) NSUnitLength *micrometers;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, micrometers);
 
 /**
  * The units of length in nanometers.
  */
-@property (class, readonly, copy) NSUnitLength *nanometers;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, nanometers);
 
 /**
  * The units of length in picometers.
  */
-@property (class, readonly, copy) NSUnitLength *picometers;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, picometers);
 
 /**
  * The units of length in inches.
  */
-@property (class, readonly, copy) NSUnitLength *inches;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, inches);
 
 /**
  * The units of length in feet.
  */
-@property (class, readonly, copy) NSUnitLength *feet;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, feet);
 
 /**
  * The units of length in yards.
  */
-@property (class, readonly, copy) NSUnitLength *yards;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, yards);
 
 /**
  * The units of length in miles.
  */
-@property (class, readonly, copy) NSUnitLength *miles;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, miles);
 
 /**
  * The units of length in scandanavian miles.
  */
-@property (class, readonly, copy) NSUnitLength *scandinavianMiles;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, scandinavianMiles);
 
 /**
  * The units of length in light years.
  */
-@property (class, readonly, copy) NSUnitLength *lightyears;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, lightyears);
 
 /**
  * The units of length in nautical miles.
  */
-@property (class, readonly, copy) NSUnitLength *nauticalMiles;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, nauticalMiles);
 
 /**
  * The units of length in fathoms.
  */
-@property (class, readonly, copy) NSUnitLength *fathoms;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, fathoms);
 
 /**
  * The units of length in furlongs.
  */
-@property (class, readonly, copy) NSUnitLength *furlongs;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, furlongs);
 
 /**
  * The units of length in astronomical units.
  */
-@property (class, readonly, copy) NSUnitLength *astronomicalUnits;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, astronomicalUnits);
 
 /**
  * The units of length in parsecs.
  */
-@property (class, readonly, copy) NSUnitLength *parsecs;
+GS_UNIT_CLASS_PROPERTY(NSUnitLength, parsecs);
 
 @end
 
@@ -696,7 +706,7 @@ GS_EXPORT_CLASS
 /**
  * The units of illuminance in lux.
  */
-@property (class, readonly, copy) NSUnitIlluminance *lux;
+GS_UNIT_CLASS_PROPERTY(NSUnitIlluminance, lux);
 
 @end
 
@@ -709,87 +719,87 @@ GS_EXPORT_CLASS
 /**
  * The mass units in kilograms.
  */
-@property (class, readonly, copy) NSUnitMass *kilograms;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, kilograms);
 
 /**
  * The mass units in grams.
  */
-@property (class, readonly, copy) NSUnitMass *grams;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, grams);
 
 /**
  * The mass units in decigrams.
  */
-@property (class, readonly, copy) NSUnitMass *decigrams;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, decigrams);
 
 /**
  * The mass units in centigrams.
  */
-@property (class, readonly, copy) NSUnitMass *centigrams;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, centigrams);
 
 /**
  * The mass units in milligrams.
  */
-@property (class, readonly, copy) NSUnitMass *milligrams;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, milligrams);
 
 /**
  * The mass units in micrograms.
  */
-@property (class, readonly, copy) NSUnitMass *micrograms;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, micrograms);
 
 /**
  * The mass units in nanograms.
  */
-@property (class, readonly, copy) NSUnitMass *nanograms;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, nanograms);
 
 /**
  * The mass units in picograms.
  */
-@property (class, readonly, copy) NSUnitMass *picograms;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, picograms);
 
 /**
  * The mass units in ounces.
  */
-@property (class, readonly, copy) NSUnitMass *ounces;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, ounces);
 
 /**
  * The mass units in pounds (same as poundsMass).
  */
-@property (class, readonly, copy) NSUnitMass *pounds;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, pounds);
 
 /**
  * The mass units in pounds.
  */
-@property (class, readonly, copy) NSUnitMass *poundsMass;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, poundsMass);
 
 /**
  * The mass units in stones.
  */
-@property (class, readonly, copy) NSUnitMass *stones;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, stones);
 
 /**
  * The mass units in metric tons.
  */
-@property (class, readonly, copy) NSUnitMass *metricTons;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, metricTons);
 
 /**
  * The mass units in short tons.
  */
-@property (class, readonly, copy) NSUnitMass *shortTons;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, shortTons);
 
 /**
  * The mass units in carats.
  */
-@property (class, readonly, copy) NSUnitMass *carats;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, carats);
 
 /**
  * The mass units in ounces troy.
  */
-@property (class, readonly, copy) NSUnitMass *ouncesTroy;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, ouncesTroy);
 
 /**
  * The mass units in slugs.
  */
-@property (class, readonly, copy) NSUnitMass *slugs;
+GS_UNIT_CLASS_PROPERTY(NSUnitMass, slugs);
 
 @end
 
@@ -802,57 +812,57 @@ GS_EXPORT_CLASS
 /**
  * The power units in terawatts.
  */
-@property (class, readonly, copy) NSUnitPower *terawatts;
+GS_UNIT_CLASS_PROPERTY(NSUnitPower, terawatts);
 
 /**
  * The power units in gigawatts.
  */
-@property (class, readonly, copy) NSUnitPower *gigawatts;
+GS_UNIT_CLASS_PROPERTY(NSUnitPower, gigawatts);
 
 /**
  * The power units in megawatts.
  */
-@property (class, readonly, copy) NSUnitPower *megawatts;
+GS_UNIT_CLASS_PROPERTY(NSUnitPower, megawatts);
 
 /**
  * The power units in kilowatts.
  */
-@property (class, readonly, copy) NSUnitPower *kilowatts;
+GS_UNIT_CLASS_PROPERTY(NSUnitPower, kilowatts);
 
 /**
  * The power units in watts.
  */
-@property (class, readonly, copy) NSUnitPower *watts;
+GS_UNIT_CLASS_PROPERTY(NSUnitPower, watts);
 
 /**
  * The power units in milliwatts.
  */
-@property (class, readonly, copy) NSUnitPower *milliwatts;
+GS_UNIT_CLASS_PROPERTY(NSUnitPower, milliwatts);
 
 /**
  * The power units in microwatts.
  */
-@property (class, readonly, copy) NSUnitPower *microwatts;
+GS_UNIT_CLASS_PROPERTY(NSUnitPower, microwatts);
 
 /**
  * The power units in nanowatts.
  */
-@property (class, readonly, copy) NSUnitPower *nanowatts;
+GS_UNIT_CLASS_PROPERTY(NSUnitPower, nanowatts);
 
 /**
  * The power units in picowatts.
  */
-@property (class, readonly, copy) NSUnitPower *picowatts;
+GS_UNIT_CLASS_PROPERTY(NSUnitPower, picowatts);
 
 /**
  * The power units in femtowatts.
  */
-@property (class, readonly, copy) NSUnitPower *femtowatts;
+GS_UNIT_CLASS_PROPERTY(NSUnitPower, femtowatts);
 
 /**
  * The power units in horsepower.
  */
-@property (class, readonly, copy) NSUnitPower *horsepower;
+GS_UNIT_CLASS_PROPERTY(NSUnitPower, horsepower);
 
 @end
 
@@ -865,52 +875,52 @@ GS_EXPORT_CLASS
 /**
  * The newtons per meters squared unit of pressure.
  */
-@property (class, readonly, copy) NSUnitPressure *newtonsPerMetersSquared;
+GS_UNIT_CLASS_PROPERTY(NSUnitPressure, newtonsPerMetersSquared);
 
 /**
  * The gigapascals unit of pressure.
  */
-@property (class, readonly, copy) NSUnitPressure *gigapascals;
+GS_UNIT_CLASS_PROPERTY(NSUnitPressure, gigapascals);
 
 /**
  * The megapascals unit of pressure.
  */
-@property (class, readonly, copy) NSUnitPressure *megapascals;
+GS_UNIT_CLASS_PROPERTY(NSUnitPressure, megapascals);
 
 /**
  * The kilopascals unit of pressure.
  */
-@property (class, readonly, copy) NSUnitPressure *kilopascals;
+GS_UNIT_CLASS_PROPERTY(NSUnitPressure, kilopascals);
 
 /**
  * The hetcopascals unit of pressure.
  */
-@property (class, readonly, copy) NSUnitPressure *hectopascals;
+GS_UNIT_CLASS_PROPERTY(NSUnitPressure, hectopascals);
 
 /**
  * The inches of mercury unit of pressure.
  */
-@property (class, readonly, copy) NSUnitPressure *inchesOfMercury;
+GS_UNIT_CLASS_PROPERTY(NSUnitPressure, inchesOfMercury);
 
 /**
  * The bars unit of pressure.
  */
-@property (class, readonly, copy) NSUnitPressure *bars;
+GS_UNIT_CLASS_PROPERTY(NSUnitPressure, bars);
 
 /**
  * The millibars unit of pressure.
  */
-@property (class, readonly, copy) NSUnitPressure *millibars;
+GS_UNIT_CLASS_PROPERTY(NSUnitPressure, millibars);
 
 /**
  * The millimeters of mercury of pressure.
  */
-@property (class, readonly, copy) NSUnitPressure *millimetersOfMercury;
+GS_UNIT_CLASS_PROPERTY(NSUnitPressure, millimetersOfMercury);
 
 /**
  * The pounds of per square inch of pressure.
  */
-@property (class, readonly, copy) NSUnitPressure *poundsForcePerSquareInch;
+GS_UNIT_CLASS_PROPERTY(NSUnitPressure, poundsForcePerSquareInch);
 
 @end
 
@@ -923,22 +933,22 @@ GS_EXPORT_CLASS
 /**
  * The meters per second measurement of speed.
  */
-@property (class, readonly, copy) NSUnitSpeed *metersPerSecond;
+GS_UNIT_CLASS_PROPERTY(NSUnitSpeed, metersPerSecond);
 
 /**
  * The kilometers per hour measurement of speed.
  */
-@property (class, readonly, copy) NSUnitSpeed *kilometersPerHour;
+GS_UNIT_CLASS_PROPERTY(NSUnitSpeed, kilometersPerHour);
 
 /**
  * The miles per hour measurement of speed.
  */
-@property (class, readonly, copy) NSUnitSpeed *milesPerHour;
+GS_UNIT_CLASS_PROPERTY(NSUnitSpeed, milesPerHour);
 
 /**
  * The knots measurement of speed.
  */
-@property (class, readonly, copy) NSUnitSpeed *knots;
+GS_UNIT_CLASS_PROPERTY(NSUnitSpeed, knots);
 
 @end
 
@@ -952,17 +962,17 @@ GS_EXPORT_CLASS
 /**
  * The kelvin unit of temperature.
  */
-@property (class, readonly, copy) NSUnitTemperature *kelvin;
+GS_UNIT_CLASS_PROPERTY(NSUnitTemperature, kelvin);
 
 /**
  * The kelvin unit of celsius.
  */
-@property (class, readonly, copy) NSUnitTemperature *celsius;
+GS_UNIT_CLASS_PROPERTY(NSUnitTemperature, celsius);
 
 /**
  * The kelvin unit of fahenheit.
  */
-@property (class, readonly, copy) NSUnitTemperature *fahrenheit;
+GS_UNIT_CLASS_PROPERTY(NSUnitTemperature, fahrenheit);
 
 @end
 
@@ -976,157 +986,157 @@ GS_EXPORT_CLASS
 /**
  * The megaliters unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *megaliters;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, megaliters);
 
 /**
  * The kiloliters unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *kiloliters;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, kiloliters);
 
 /**
  * The liters unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *liters;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, liters);
 
 /**
  * The deciliters unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *deciliters;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, deciliters);
 
 /**
  * The centiliters unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *centiliters;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, centiliters);
 
 /**
  * The milliliters unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *milliliters;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, milliliters);
 
 /**
  * The cubic kilometers unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *cubicKilometers;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, cubicKilometers);
 
 /**
  * The cubic meters unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *cubicMeters;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, cubicMeters);
 
 /**
  * The cubic decimeters unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *cubicDecimeters;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, cubicDecimeters);
 
 /**
  * The cubic centimeteres unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *cubicCentimeters;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, cubicCentimeters);
 
 /**
  * The cubic millimeters unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *cubicMillimeters;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, cubicMillimeters);
 
 /**
  * The cubic inches unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *cubicInches;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, cubicInches);
 
 /**
  * The cubic feet unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *cubicFeet;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, cubicFeet);
 
 /**
  * The cubic yards unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *cubicYards;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, cubicYards);
 
 /**
  * The cubic miles unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *cubicMiles;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, cubicMiles);
 
 /**
  * The acre feet unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *acreFeet;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, acreFeet);
 
 /**
  * The bushels unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *bushels;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, bushels);
 
 /**
  * The teaspoons unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *teaspoons;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, teaspoons);
 
 /**
  * The tablespoons unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *tablespoons;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, tablespoons);
 
 /**
  * The fluid ounces unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *fluidOunces;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, fluidOunces);
 
 /**
  * The cups unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *cups;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, cups);
 
 /**
  * The pints unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *pints;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, pints);
 
 /**
  * The quarts unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *quarts;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, quarts);
 
 /**
  * The gallons unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *gallons;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, gallons);
 
 /**
  * The imperial teaspoons unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *imperialTeaspoons;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, imperialTeaspoons);
 
 /**
  * The imperial tablespoons unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *imperialTablespoons;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, imperialTablespoons);
 
 /**
  * The imperial fluid ounces unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *imperialFluidOunces;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, imperialFluidOunces);
 
 /**
  * The imperial pints unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *imperialPints;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, imperialPints);
 
 /**
  * The imperial quarts unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *imperialQuarts;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, imperialQuarts);
 
 /**
  * The imperial gallons unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *imperialGallons;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, imperialGallons);
 
 /**
  * The metric cups unit of volume.
  */
-@property (class, readonly, copy) NSUnitVolume *metricCups;
+GS_UNIT_CLASS_PROPERTY(NSUnitVolume, metricCups);
 
 @end
 
