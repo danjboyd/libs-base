@@ -442,10 +442,11 @@
 	   * The watcher is still valid - so call its
 	   * receivers event handling method.
 	   */
-	  /* An ET_TRIGGER watcher is a file handle polled on every pass, not
-	   * input known to be ready, so it doesn't count as input handled.
+	  /* A watcher that said it has input counts as input handled.  One that
+	   * doesn't say is a file handle polled on every pass, and doesn't.
 	   */
-	  if (watcher->type != ET_TRIGGER)
+	  if ([watcher->receiver respondsToSelector:
+	    @selector(runLoopShouldBlock:)])
 	    {
 	      triggered = YES;
 	    }

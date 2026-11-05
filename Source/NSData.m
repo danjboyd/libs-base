@@ -624,6 +624,7 @@ setWriteError(NSError **errorPtr, NSString *path, NSError *underlying)
     {
       case ERROR_FILE_NOT_FOUND:
       case ERROR_PATH_NOT_FOUND:
+      case ERROR_DIRECTORY:	// GetTempFileNameW() in a missing directory
 	code = NSFileNoSuchFileError;
 	break;
       case ERROR_ACCESS_DENIED:
