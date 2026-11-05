@@ -16,6 +16,10 @@
 #include <unistd.h>
 #import <objc/runtime.h>
 #endif
+#if defined(_WIN32)
+#include <windows.h>
+#import <objc/runtime.h>
+#endif
 
 /* Mutating a collection while a for-in loop enumerates it makes the loop
  * call objc_enumerationMutation(), and with gnustep-base that raises
@@ -71,24 +75,42 @@ raisesGeneric(void (*function)(id), id collection)
 int main()
 {
   NSAutoreleasePool	*arp = [NSAutoreleasePool new];
-  NSMutableArray	*array;
-  NSMutableDictionary	*dictionary;
-  NSMutableSet		*set;
+  NSMutableArray	*array = nil;
 
-  array = [NSMutableArray arrayWithObjects: @"a", @"b", @"c", nil];
+  START_SET("mutating a collection while enumerating it")
+#if defined(_WIN32)
+    HMODULE	runtime = NULL;
+
+    /* A DLL's references to objc_enumerationMutation() bind to the runtime's
+     * own function, which aborts unless the runtime can be told to call
+     * gnustep-base's handler.  This is a real limitation of such a runtime
+     * (MSYS2's libobjc2 has no handler), not something this test can run.
+     */
+    if (!GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS
+      | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+      (LPCSTR)class_getName, &runtime)
+      || NULL == GetProcAddress(runtime, "objc_setEnumerationMutationHandler"))
+      {
+        SKIP("this runtime has no objc_setEnumerationMutationHandler(),"
+	  " so a mutated for-in loop aborts")
+      }
+#endif
+  /* Retained: the set below drains its own pool, and a later set uses this. */
+  array = [[NSMutableArray arrayWithObjects: @"a", @"b", @"c", nil] retain];
   PASS(raisesGeneric(addToArray, array),
     "adding to an array while enumerating it raises NSGenericException")
   PASS(3 == [array count] || 4 == [array count],
     "the array was added to at most once")
 
-  dictionary = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+  NSMutableDictionary	*dictionary = [NSMutableDictionary dictionaryWithObjectsAndKeys:
     @"1", @"a", @"2", @"b", nil];
   PASS(raisesGeneric(removeFromDictionary, dictionary),
     "removing from a dictionary while enumerating it raises")
 
-  set = [NSMutableSet setWithObjects: @"a", @"b", nil];
+  NSMutableSet		*set = [NSMutableSet setWithObjects: @"a", @"b", nil];
   PASS(raisesGeneric(addToSet, set),
     "adding to a set while enumerating it raises")
+  END_SET("mutating a collection while enumerating it")
 
 #if defined(__ELF__)
   START_SET("the runtime's objc_enumerationMutation()")
@@ -129,6 +151,7 @@ int main()
   END_SET("the runtime's objc_enumerationMutation()")
 #endif
 
+  [array release];
   [arp release]; arp = nil;
   return 0;
 }
