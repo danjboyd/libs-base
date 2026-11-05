@@ -1,5 +1,12 @@
 2026-11-05 Daniel Boyd <danieljboyd@icloud.com>
 
+	* Source/NSRunLoop.m:
+	* Tests/base/NSRunLoop/commonModes.m:
+	Let NSRunLoopCommonModes stand for its modes for timers, delayed performs,
+	performers and watchers, not just blocks.
+
+2026-11-05 Daniel Boyd <danieljboyd@icloud.com>
+
 	* Source/GSPrivate.h:
 	* Source/GSString.m:
 	* Source/NSString.m:

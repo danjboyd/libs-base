@@ -73,6 +73,44 @@ static NSDate	*theFuture = nil;
  */
 static NSArray	*theCommonModes = nil;
 
+/* The modes with NSRunLoopCommonModes replaced by the modes it stands for.
+ */
+static NSArray *
+expandCommonModes(NSArray *modes)
+{
+  NSMutableArray	*expanded;
+  NSUInteger		count = [modes count];
+  NSUInteger		i;
+
+  if (NO == [modes containsObject: NSRunLoopCommonModes])
+    {
+      return modes;
+    }
+  expanded = [NSMutableArray arrayWithCapacity: count + 2];
+  for (i = 0; i < count; i++)
+    {
+      NSString	*mode = [modes objectAtIndex: i];
+
+      if ([mode isEqual: NSRunLoopCommonModes])
+        {
+          NSEnumerator	*c = [theCommonModes objectEnumerator];
+
+          while ((mode = [c nextObject]) != nil)
+            {
+              if (NO == [expanded containsObject: mode])
+                {
+                  [expanded addObject: mode];
+                }
+            }
+        }
+      else if (NO == [expanded containsObject: mode])
+        {
+          [expanded addObject: mode];
+        }
+    }
+  return expanded;
+}
+
 
 
 /*
@@ -829,6 +867,16 @@ contextForMode(RunLoopInternal *loop, NSString *mode, BOOL shouldCreate)
 {
   GSRunLoopWatcher	*info;
 
+  if ([mode isEqual: NSRunLoopCommonModes])
+    {
+      NSEnumerator	*e = [theCommonModes objectEnumerator];
+
+      while ((mode = [e nextObject]) != nil)
+	{
+	  [self addEvent: data type: type watcher: watcher forMode: mode];
+	}
+      return;
+    }
   if (mode == nil)
     {
       mode = [self currentMode];
@@ -865,6 +913,16 @@ contextForMode(RunLoopInternal *loop, NSString *mode, BOOL shouldCreate)
              forMode: (NSString*)mode
 		 all: (BOOL)removeAll
 {
+  if ([mode isEqual: NSRunLoopCommonModes])
+    {
+      NSEnumerator	*e = [theCommonModes objectEnumerator];
+
+      while ((mode = [e nextObject]) != nil)
+	{
+	  [self removeEvent: data type: type forMode: mode all: removeAll];
+	}
+      return;
+    }
   if (mode == nil)
     {
       mode = [self currentMode];
@@ -1107,6 +1165,16 @@ static GSMainQueueDrainer 	*drainer = nil;
       [NSException raise: NSInvalidArgumentException
 		  format: @"[%@-%@] not a valid mode",
 	NSStringFromClass([self class]), NSStringFromSelector(_cmd)];
+    }
+  if ([mode isEqual: NSRunLoopCommonModes])
+    {
+      NSEnumerator	*e = [theCommonModes objectEnumerator];
+
+      while ((mode = [e nextObject]) != nil)
+	{
+	  [self addTimer: timer forMode: mode];
+	}
+      return;
     }
   context = contextForMode(myvars, mode, YES);
 
@@ -1595,35 +1663,13 @@ updateTimer(NSTimer *t, NSDate *d, NSTimeInterval now)
                   block: (GSRunLoopBlock)block
 {
   GSRunLoopBlockPerformer	*performer;
-  NSMutableArray		*expanded;
-  NSEnumerator			*e;
-  NSString			*mode;
+  NSArray			*expanded;
 
   if (NULL == block || [modes count] == 0)
     {
       return;
     }
-  expanded = [NSMutableArray arrayWithCapacity: [modes count] + 2];
-  e = [modes objectEnumerator];
-  while ((mode = [e nextObject]) != nil)
-    {
-      if ([mode isEqual: NSRunLoopCommonModes])
-        {
-          NSEnumerator	*c = [theCommonModes objectEnumerator];
-
-          while ((mode = [c nextObject]) != nil)
-            {
-              if (NO == [expanded containsObject: mode])
-                {
-                  [expanded addObject: mode];
-                }
-            }
-        }
-      else if (NO == [expanded containsObject: mode])
-        {
-          [expanded addObject: mode];
-        }
-    }
+  expanded = expandCommonModes(modes);
   performer = [[GSRunLoopBlockPerformer alloc] initWithBlock: block];
   if (nil == myvars->owner || GSCurrentThread() == myvars->owner)
     {
@@ -1754,8 +1800,10 @@ updateTimer(NSTimer *t, NSDate *d, NSTimeInterval now)
 		   order: (NSUInteger)order
 		   modes: (NSArray*)modes
 {
-  unsigned		count = [modes count];
+  unsigned		count;
 
+  modes = expandCommonModes(modes);
+  count = [modes count];
   if (count > 0)
     {
       NSString			*array[count];
