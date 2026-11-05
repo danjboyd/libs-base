@@ -3222,23 +3222,19 @@ rangeOfSequence_c(GSStr self, unsigned anIndex)
   return (NSRange){anIndex, 1};
 }
 
+static unichar
+charAt_u(void *context, NSUInteger i)
+{
+  return ((GSStr)context)->_contents.u[i];
+}
+
 static inline NSRange
 rangeOfSequence_u(GSStr self, unsigned anIndex)
 {
-  unsigned	start;
-  unsigned	end;
-
   if (anIndex >= self->_count)
     [NSException raise: NSRangeException format:@"Invalid location."];
 
-  start = anIndex;
-  while (uni_isnonsp(self->_contents.u[start]) && start > 0)
-    start--;
-  end = start + 1;
-  if (end < self->_count)
-    while ((end < self->_count) && (uni_isnonsp(self->_contents.u[end])))
-      end++;
-  return (NSRange){start, end-start};
+  return GSPrivateComposedRange(charAt_u, self, self->_count, anIndex);
 }
 
 static inline NSRange
