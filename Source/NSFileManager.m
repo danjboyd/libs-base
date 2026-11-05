@@ -1838,9 +1838,12 @@ static gs_mutex_t       classLock = GS_MUTEX_INIT_STATIC;
 
       if (res == WIN32ERR)
 	{
-	  /* Read at once: sending a message can overwrite the last error. */
+	  /* Read first: looking up any method can overwrite the last error,
+	   * and a compiler can do the lookup before evaluating the arguments.
+	   */
+	  DWORD		lastError = GetLastError();
 	  NSString	*message = [self _noteSystemError:
-	    [NSError _systemError: GetLastError()]];
+	    [NSError _systemError: lastError]];
 
 	  return [self _proceedAccordingToHandler: handler
 					 forError: message
