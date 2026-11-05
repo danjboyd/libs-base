@@ -6,11 +6,18 @@ set -ex
 # caller to point us at GNU make. Defaults to plain "make" everywhere else.
 MAKE=${MAKE:-make}
 
+# The commits this fork is built and tested with, from the gnustep-swift
+# repository's config/patched-stack.tsv.  Update them with its pins.
+TOOLS_MAKE_PIN=246a322b48d05120fdda43907bf0cb4e08395d0b
+LIBOBJC2_PIN=a722f10058850e14dd825a4081b672873e412c92
+LIBDISPATCH_PIN=4ce40128f607a6eb7b58077a06b7464c1518a30d
+
 install_gnustep_make() {
     echo "::group::GNUstep Make"
     cd $DEPS_PATH
-    git clone -q -b ${TOOLS_MAKE_BRANCH:-master} https://github.com/gnustep/tools-make.git
+    git clone -q https://github.com/danjboyd/tools-make.git
     cd tools-make
+    git checkout -q ${TOOLS_MAKE_BRANCH:-$TOOLS_MAKE_PIN}
     MAKE_OPTS=
     if [ -n "$HOST" ]; then
       MAKE_OPTS="$MAKE_OPTS --host=$HOST"
@@ -29,8 +36,9 @@ install_gnustep_make() {
 install_libobjc2() {
     echo "::group::libobjc2"
     cd $DEPS_PATH
-    git clone -q https://github.com/gnustep/libobjc2.git
+    git clone -q https://github.com/danjboyd/libobjc2.git
     cd libobjc2
+    git checkout -q $LIBOBJC2_PIN
     git submodule sync
     git submodule update --init
     mkdir build
@@ -50,6 +58,7 @@ install_libdispatch() {
     echo "::group::libdispatch"
     cd $DEPS_PATH
     git clone -q https://github.com/swiftlang/swift-corelibs-libdispatch libdispatch
+    git -C libdispatch checkout -q $LIBDISPATCH_PIN
     mkdir libdispatch/build
     cd libdispatch/build
     cmake \
