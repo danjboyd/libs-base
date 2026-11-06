@@ -32,14 +32,14 @@ int main()
     -1e-30,
     DBL_MIN / 4,			/* subnormal */
     ldexp(1.0, -144),			/* smallest compressible magnitude */
-    nextafter(ldexp(1.0, -144), 0.0),
+    ldexp(1.0 - DBL_EPSILON / 2, -144),
     0.001,
     -1.5,
     -978307200.0,			/* 1970 */
     1e9,
     63113990400.0,			/* distantFuture */
     -63113817600.0,			/* distantPast */
-    nextafter(ldexp(1.0, 112), 0.0),	/* largest compressible magnitude */
+    ldexp(1.0 - DBL_EPSILON / 2, 112),	/* largest compressible magnitude */
     ldexp(1.0, 112),
     1e20,
     -1e300,
