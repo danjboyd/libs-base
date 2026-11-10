@@ -172,8 +172,10 @@ for d in "$GS_BASE"/Tests/base/*/; do
     # -testEquals: do not exist and every PASS using them raises
     EXTRA=""
     grep -q '"generic\.h"' "$f" && EXTRA="$GS_BASE/Tests/base/GenericTests/generic.m"
-    # Keep executables distinct from fixture directories such as addressTLS/.
-    if $CCPREFIX-clang $FLAGS $INC -I"$d" -o "$W/$n/$b.test" "$f" $EXTRA $LIBS $XLIB \
+    # Preserve process names except where a fixture directory occupies the name.
+    program="$b"
+    [ -d "$W/$n/$b" ] && program="$b.test"
+    if $CCPREFIX-clang $FLAGS $INC -I"$d" -o "$W/$n/$program" "$f" $EXTRA $LIBS $XLIB \
          -fuse-ld=lld -Wl,-rpath,'$ORIGIN/..' $XRPATH > "$W/$n/$b.clog" 2>&1; then
       built="$built $b"
     else
@@ -209,8 +211,10 @@ for d in "$GS_BASE"/Tests/base/*/; do
 
   dp=0; df=0; dh=0; ds=0
   for b in $built; do
+    program="$b"
+    [ -d "$W/$n/$b" ] && program="$b.test"
     out=$(adb shell "cd $DEV/$n && LD_LIBRARY_PATH=$DEV PATH=$DEV/Tools:\$PATH TMPDIR=$TMP \
-      GNUSTEP_CONFIG_FILE=$CONF timeout -s KILL $GS_TIMEOUT ./$b.test 2>&1; echo RC=\$?" \
+      GNUSTEP_CONFIG_FILE=$CONF timeout -s KILL $GS_TIMEOUT ./$program 2>&1; echo RC=\$?" \
       </dev/null | tr -d '\r')
     rc=$(echo "$out" | sed -n 's/^RC=//p' | tail -1)
     fp=$(echo "$out" | grep -c "^Passed test") || true
