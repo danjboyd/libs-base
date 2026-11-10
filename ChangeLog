@@ -1,5 +1,8 @@
 2026-11-10 Daniel Boyd <danboyd2@gmail.com>
 
+	* .github/workflows/android.yml: Cache dependencies only after their
+	build succeeds.  Change the cache key to discard incomplete entries.
+
 	* .github/scripts/android/tests.sh: Give test executables a .test
 	suffix only when a fixture directory occupies the basename.  Keep
 	other process names and all names in test reports unchanged.

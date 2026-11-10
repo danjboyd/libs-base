@@ -55,16 +55,16 @@ jobs:
         path: |
           ${{ github.workspace }}/android-prefix
           ${{ github.workspace }}/dispatch-prefix
-        key: android-deps-${{ matrix.abi }}-${{ matrix.api-level }}-${{ hashFiles('.github/scripts/android/deps.sh') }}
+        key: android-deps-v2-${{ matrix.abi }}-${{ matrix.api-level }}-${{ hashFiles('.github/scripts/android/deps.sh') }}
 
     - name: Cross-build the dependencies
+      id: deps-build
       if: steps.deps-cache.outputs.cache-hit != 'true'
       run: .github/scripts/android/deps.sh
 
-    # Saved even when a later step fails, so a broken test run does not cost
-    # a full dependency rebuild on the next attempt.
+    # Save only complete dependencies. Later test failures may reuse them.
     - name: Save the dependency cache
-      if: always() && steps.deps-cache.outputs.cache-hit != 'true'
+      if: success() && steps.deps-build.outcome == 'success' && steps.deps-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v5
       with:
         path: |
