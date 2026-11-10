@@ -1,3 +1,9 @@
+2026-11-10 Daniel Boyd <danboyd2@gmail.com>
+
+	* .github/scripts/android/tests.sh: Give test executables a .test
+	suffix so that fixture directories with the same basename remain
+	available.  Keep the original names in test reports.
+
 2026-11-04 Daniel Boyd <danieljboyd@icloud.com>
 
 	* Source/GSHTTPURLHandle.m:
